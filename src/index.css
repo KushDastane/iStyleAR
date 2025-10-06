@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* in your global CSS file, e.g., index.css */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.15) inset !important; /* keeps your translucent background */
+  -webkit-text-fill-color: white !important; /* keeps text white */
+  transition: background-color 5000s ease-in-out 0s; /* prevents Chrome flash */
+}
+
+/* Fix carousel clipping and pagination overlap */
+.swiper {
+  overflow-y: visible !important;
+  overflow-x: hidden !important;
+}
+
+.swiper-pagination {
+  margin-top: 1rem;
+  position: relative;
+}
