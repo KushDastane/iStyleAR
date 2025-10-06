@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider, useAuth } from "./context/AuthContext";
+import { AuthProvider } from "./context/AuthContext";
+import { WardrobeProvider } from "./context/WardrobeContext";
 
 // Public Pages
 import HomePage from "./pages/Home/HomePage";
@@ -29,8 +30,6 @@ import ProtectedLayout from "./Components/ProtectedLayout";
 import Footer from "./Components/Footer";
 
 function AppRoutes() {
-  const { user } = useAuth();
-
   return (
     <Routes>
       {/* ---------- PUBLIC ROUTES ---------- */}
@@ -71,11 +70,13 @@ function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AppRoutes />
-        {/* Render Footer only for public pages */}
-        <Footer />
-      </Router>
+      <WardrobeProvider>
+        <Router>
+          <AppRoutes />
+          {/* Render Footer only for public pages */}
+          <Footer />
+        </Router>
+      </WardrobeProvider>
     </AuthProvider>
   );
 }

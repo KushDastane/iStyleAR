@@ -115,24 +115,41 @@ export default function UserTryOn() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-6 bg-gray-50 flex flex-col items-center">
-      {/* Header */}
-      <div className="text-center mb-8 relative">
-        <h1 className="text-3xl md:text-5xl font-extrabold text-indigo-600 flex items-center justify-center gap-3 mx-auto">
-          <FaMagic className="text-purple-500" />
-          Virtual Try-On
-          <FaRegEye className="text-purple-500" />
+    <div className="relative min-h-screen p-4 md:p-6 flex flex-col items-center overflow-hidden">
+      {/* 🌈 Soft Gradient Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-indigo-200 to-blue-200 opacity-50 -z-10"></div>
+
+      {/* Floating Blur Circles */}
+      <div className="absolute -top-32 -left-32 w-64 h-64 bg-purple-300/40 rounded-full blur-[120px] -z-10"></div>
+      <div className="absolute bottom-0 right-0 w-72 h-72 bg-blue-300/40 rounded-full blur-[120px] -z-10"></div>
+
+      {/* Header — Compact Tech Banner */}
+      <div className="text-center mb-8 relative bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white rounded-xl py-6 px-4 shadow-lg">
+        {/* Title */}
+        <h1 className="text-2xl md:text-4xl font-extrabold flex items-center justify-center gap-2 tracking-tight">
+          <FaMagic className="text-white/90" />
+          <span className="drop-shadow-sm">Virtual Try-On</span>
+          <FaRegEye className="text-white/90" />
         </h1>
 
-        <p className="text-gray-600 mt-3 text-sm md:text-base max-w-xl mx-auto">
-          Select a dress → Choose your size → Capture → Save
+        {/* Subtitle */}
+        <p className="mt-2 text-xs md:text-sm text-white/90 font-medium tracking-wide">
+          Select a dress <span className="font-bold text-white/70">•</span>{" "}
+          Choose your size <span className="font-bold text-white/70">•</span>{" "}
+          Capture <span className="font-bold text-white/70">•</span> Save
         </p>
 
-        {/* Decorative underline */}
-        <div className="mt-4 h-1 w-24 md:w-32 mx-auto bg-indigo-300 rounded-full"></div>
+        {/* Decorative divider */}
+        <div className="mt-3 h-[2px] w-20 mx-auto bg-white/40 rounded-full"></div>
+
+        {/* Soft lighting accent */}
+        <div className="absolute inset-0 overflow-hidden rounded-xl">
+          <div className="absolute top-0 left-1/3 w-40 h-40 bg-white/10 blur-2xl rounded-full"></div>
+          <div className="absolute bottom-0 right-1/3 w-44 h-44 bg-indigo-400/20 blur-3xl rounded-full"></div>
+        </div>
       </div>
 
-      {/* Free Try-ons */}
+      {/* Free Try-ons Counter */}
       <div className="mb-6 bg-white shadow-md rounded-full px-6 py-2">
         <span className="font-semibold text-gray-700">
           Free Try-Ons Left: {freeTryonsLeft}
@@ -147,7 +164,7 @@ export default function UserTryOn() {
             <img
               src={tryOnImage}
               alt={selectedDress?.name || "tryon"}
-              className="max-w-full max-h-full object-contain transition-all duration-300 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+              className="max-w-full max-h-full object-contain absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full bg-gray-100 rounded-xl animate-pulse">

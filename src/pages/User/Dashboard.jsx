@@ -1,11 +1,17 @@
 import { useAuth } from "../../context/useAuth";
+import { useWardrobe } from "../../context/WardrobeContext";
 import CreativeCarousel from "../../Components/CreativeCarousel";
 import { useNavigate } from "react-router-dom";
 import { FaCamera, FaHeart, FaFire } from "react-icons/fa";
 
+import { toast } from "react-toastify";
+
 export default function Dashboard() {
   const { user } = useAuth();
+  const { addToWardrobe, wardrobeItems } = useWardrobe();
   const navigate = useNavigate();
+
+  const isItemAdded = (item) => wardrobeItems.some(w => w.name === item.name && w.imageUrl === item.imageUrl);
 
   const previousTries = [
     {
@@ -58,7 +64,15 @@ export default function Dashboard() {
     },
   ];
 
-  const handleAddToWardrobe = (item) => console.log("Add to wardrobe:", item);
+  const handleAddToWardrobe = async (item) => {
+    try {
+      await addToWardrobe(item);
+      toast.success(`${item.name} added to wardrobe!`);
+    } catch (error) {
+      toast.error("Failed to add to wardrobe. Please try again.");
+      console.error(error);
+    }
+  };
   const handleTryAgain = (item) => {
     navigate("/user/try-on", {
       state: { cloth: { name: item.name, imageUrl: item.img } },
@@ -135,6 +149,7 @@ export default function Dashboard() {
               onTryAgain={handleAddToWardrobe}
               showTryAgain={true}
               buttonText="Add to Wardrobe"
+              isItemAdded={isItemAdded}
             />
           </div>
 

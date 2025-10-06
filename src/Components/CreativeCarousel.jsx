@@ -12,6 +12,7 @@ export default function CreativeCarousel({
   onTryAgain,
   buttonText = "Try Again",
   slidesPerViewDesktop = 4, // number of cards per view on desktop
+  isItemAdded, // function to check if item is added
 }) {
   const swiperRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -90,10 +91,14 @@ export default function CreativeCarousel({
 
                 {hasButton && (
                   <button
-                    onClick={() => onTryAgain(item)}
-                    className="mt-auto w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-md text-sm font-medium transition"
+                    onClick={isItemAdded && isItemAdded(item) ? undefined : () => onTryAgain(item)}
+                    className={`mt-auto w-full text-white py-2 rounded-md text-sm font-medium transition ${
+                      isItemAdded && isItemAdded(item)
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-purple-600 hover:bg-purple-700"
+                    }`}
                   >
-                    {buttonText}
+                    {isItemAdded && isItemAdded(item) ? "Added" : buttonText}
                   </button>
                 )}
               </div>
