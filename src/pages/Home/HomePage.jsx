@@ -135,22 +135,22 @@ export default function HomePage() {
             {
               name: "Kush Dastane",
               role: "Leader & Full-Stack Developer",
-              img: "src/assets/team/pfp.png",
+              imgUrl: "src/assets/team/pfp.png",
             },
             {
               name: "Pranav Chavan",
               role: "AR Developer",
-              img: "src/assets/team/pranav.png",
+              imgUrl: "src/assets/team/pranav.png",
             },
             {
               name: "Pushpak Khade",
               role: "UI/UX Designer",
-              img: "src/assets/team/pushpak.png",
+              imgUrl: "src/assets/team/pushpak.png",
             },
             {
               name: "Sudhanshu Ray",
               role: "Researcher",
-              img: "src/assets/team/sudhanshu.png",
+              imgUrl: "src/assets/team/sudhanshu.png",
             },
           ].map((member, idx) => (
             <motion.div
