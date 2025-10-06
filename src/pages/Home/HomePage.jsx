@@ -70,6 +70,16 @@ export default function HomePage() {
           Augmented Reality.
         </motion.p>
 
+        {/* Scroll Down Indicator */}
+        <motion.div
+          className="absolute bottom-8 flex flex-col items-center gap-2 z-10"
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <div className="w-3 h-3 border-b-2 border-r-2 border-white rotate-45 mb-1"></div>
+          <p className="text-white text-xs animate-pulse">Scroll</p>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

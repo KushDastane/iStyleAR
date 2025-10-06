@@ -14,14 +14,35 @@ export default function PublicNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const navRef = useRef(null);
+  const menuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleScroll = () => {
+      if (open) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [open]);
 
   // scroll with offset for fixed navbar
   const scrollToSection = (id) => {
@@ -150,6 +171,7 @@ export default function PublicNavbar() {
 
       {/* Mobile menu panel */}
       <div
+        ref={menuRef}
         className={`md:hidden transition-all duration-300 origin-top ${
           open
             ? "max-h-screen opacity-100"

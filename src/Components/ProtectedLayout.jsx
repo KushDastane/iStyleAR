@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { FaShoppingCart, FaUserCircle, FaBars, FaTimes } from "react-icons/fa";
 import { signOut } from "firebase/auth";
@@ -14,7 +14,29 @@ export default function ProtectedLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const menuRef = useRef(null);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    const handleScroll = () => {
+      if (menuOpen) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [menuOpen]);
 
   const navLinks = [
     { name: "Dashboard", path: "/user" },
@@ -77,7 +99,7 @@ export default function ProtectedLayout() {
             </button>
 
             {/* Hamburger Menu (small screens) */}
-            <div className="md:hidden">
+            <div className="md:hidden" ref={menuRef}>
               <button onClick={() => setMenuOpen(!menuOpen)}>
                 {menuOpen ? (
                   <FaTimes className="w-6 h-6 text-gray-700" />
@@ -91,7 +113,10 @@ export default function ProtectedLayout() {
 
         {/* Mobile Menu */}
         {menuOpen && (
-          <div className="md:hidden bg-white shadow-md border-t border-gray-200 px-4 py-2 flex flex-col gap-2">
+          <div
+            ref={menuRef}
+            className="md:hidden bg-white shadow-md border-t border-gray-200 px-4 py-2 flex flex-col gap-2"
+          >
             {navLinks.map((link) => (
               <Link
                 key={link.name}
