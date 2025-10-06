@@ -72,7 +72,7 @@ export default function HomePage() {
 
         {/* Scroll Down Indicator */}
         <motion.div
-          className="absolute bottom-8 flex flex-col items-center gap-2 z-10"
+          className="absolute bottom-26 flex flex-col items-center gap-2 z-10"
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
         >
