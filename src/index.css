@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+body {
+  margin: 0;
+  padding: 0;
+}
+
 /* in your global CSS file, e.g., index.css */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,

@@ -1,4 +1,3 @@
-- [x] Implement wardrobeService.js with addToWardrobe and getWardrobeItems functions using Firestore
-- [x] Implement WardrobeContext.jsx as React context with provider, state, and addToWardrobe function
-- [x] Update Dashboard.jsx to import and use WardrobeContext, replace handleAddToWardrobe with context's addToWardrobe
-- [x] Test the functionality: run app, add item from dashboard, check virtual wardrobe
+ue?s- [x] Add body { margin: 0; padding: 0; } in src/index.css
+- [ ] Add overflow: hidden to the outer div in src/pages/Auth/Login.jsx
+- [ ] Add overflow: hidden to the outer div in src/pages/Auth/Register.jsx
