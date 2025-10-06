@@ -26,6 +26,8 @@ import {
 } from "react-icons/fa";
 
 export default function VirtualWardrobe() {
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
   const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
@@ -69,15 +71,15 @@ export default function VirtualWardrobe() {
     setUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("upload_preset", "wardrobe");
-      formData.append("folder", `wardrobe/${user.uid}`);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("upload_preset", uploadPreset);
+    formData.append("folder", `wardrobe/${user.uid}`);
 
-      const res = await axios.post(
-        "https://api.cloudinary.com/v1_1/dyiaqidiq/image/upload",
-        formData
-      );
+    const res = await axios.post(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      formData
+    );
 
       await addDoc(collection(db, "users", user.uid, "wardrobe"), {
         name: cloth.name,
