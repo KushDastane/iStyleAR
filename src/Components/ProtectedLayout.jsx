@@ -4,18 +4,23 @@ import { FaShoppingCart, FaUserCircle, FaBars, FaTimes } from "react-icons/fa";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase/config";
 import { toast } from "react-toastify";
+import Logo from "../assets/logo.png";
+import { useAuth } from "../context/useAuth";
+
+
 
 export default function ProtectedLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
 
   const navLinks = [
     { name: "Dashboard", path: "/user" },
-    { name: "Trending", path: "/trending" },
+    { name: "Trending", path: "/user/trending" },
     { name: "Virtual Try-On", path: "/user/try-on" },
     { name: "View Cart", path: "/user/wardrobe" },
-    
   ];
 
   const handleLogout = async () => {
@@ -34,7 +39,7 @@ export default function ProtectedLayout() {
         <div className="max-w-7xl mx-auto px-6 lg:px-1 flex justify-between items-center h-16">
           {/* Left: Logo + App Name */}
           <div className="flex items-center space-x-3">
-            <img src="src/assets/logo.png" alt="iStyleAR" className="h-10 w-10" />
+            <img src={Logo} alt="iStyleAR" className="h-10 w-10" />
             <span className="font-bold text-xl text-gray-900">iStyleAR</span>
           </div>
 
@@ -55,7 +60,12 @@ export default function ProtectedLayout() {
 
           {/* Right: Icons + Logout + Hamburger */}
           <div className="flex gap-2 items-center space-x-4 md:space-x-2">
-            <FaShoppingCart className="text-gray-700 w-6 h-6 cursor-pointer hover:text-purple-600" />
+            <FaShoppingCart
+              className="text-gray-700 w-6 h-6 cursor-pointer hover:text-purple-600"
+              onClick={() => {
+                if (!loading && user) navigate("/user/wardrobe");
+              }}
+            />
             <FaUserCircle className="text-gray-700 w-6 h-6 cursor-pointer hover:text-purple-600" />
 
             {/* Desktop Logout */}

@@ -3,8 +3,8 @@ import { motion, useAnimation } from "framer-motion";
 import { useRef, useEffect } from "react";
 import { useInView } from "react-intersection-observer";
 import TryFreePage from "../TryFree/TryFreePage";
-import { Link } from "react-router-dom";
 import AboutAndFeatures from "../../Components/AboutAndFeatures";
+import PublicNavbar from "../../Components/PublicNavbar";
 
 export default function HomePage() {
   const [aboutRef, aboutInView] = useInView({
@@ -20,31 +20,29 @@ export default function HomePage() {
     threshold: 0.2,
   });
 
-  const tryFreeRef = useRef(null); // Ref for TryFree section
-  const animation = useAnimation();
+  const tryFreeRef = useRef(null);
 
+  const animation = useAnimation();
   useEffect(() => {
     if (aboutInView || featuresInView || teamInView)
       animation.start({ opacity: 1, y: 0 });
   }, [aboutInView, featuresInView, teamInView]);
 
-  //   const scrollToTryFree = () => {
-  //     tryFreeRef.current?.scrollIntoView({ behavior: "smooth" });
-  //   };
-
   return (
     <div className="w-full overflow-x-hidden">
+      <PublicNavbar />
+
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 text-white overflow-hidden">
-        {/* Floating Background Elements */}
+      <section className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 text-white overflow-hidden px-4 md:px-0">
+        {/* Floating Orbs */}
         <motion.div
-          className="absolute w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 top-1/4 left-1/3 pointer-events-none"
-          animate={{ x: [0, 50, 0], y: [0, -50, 0] }}
+          className="absolute w-40 h-40 md:w-60 md:h-60 bg-purple-500/30 rounded-full filter blur-3xl top-1/4 left-1/3 pointer-events-none"
+          animate={{ x: [0, 40, 0], y: [0, -40, 0] }}
           transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
         />
         <motion.div
-          className="absolute w-64 h-64 bg-blue-400 rounded-full mix-blend-multiply filter blur-2xl opacity-40 top-1/2 left-2/3 pointer-events-none"
-          animate={{ x: [0, -60, 0], y: [0, 30, 0] }}
+          className="absolute w-32 h-32 md:w-52 md:h-52 bg-blue-400/30 rounded-full filter blur-2xl top-1/2 left-2/3 pointer-events-none"
+          animate={{ x: [0, -50, 0], y: [0, 20, 0] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
         />
 
@@ -53,7 +51,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 50, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 1.2, ease: "easeOut" }}
-          className="text-6xl md:text-7xl font-extrabold mb-4 z-10"
+          className="text-4xl sm:text-5xl md:text-7xl font-extrabold mb-4 z-10 text-center"
         >
           iStyleAR
         </motion.h1>
@@ -62,7 +60,7 @@ export default function HomePage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 1 }}
-          className="text-xl md:text-2xl max-w-xl text-center mb-6 z-10"
+          className="text-sm sm:text-lg md:text-xl max-w-md md:max-w-xl text-center mb-6 z-10"
         >
           Experience the future of fashion — try outfits virtually anywhere with
           Augmented Reality.
@@ -72,28 +70,26 @@ export default function HomePage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8, duration: 1 }}
-          className="flex space-x-4 z-10"
+          className="flex flex-col sm:flex-row flex-wrap justify-center gap-4 z-10"
         >
-          {/* Scroll Button for Free Try Demo */}
           <button
-            onClick={() => {
-              const demoSection = document.getElementById("try-free-section");
-              demoSection?.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:scale-105 transform transition-all duration-300 text-white px-8 py-4 rounded-xl shadow-lg"
+            onClick={() =>
+              tryFreeRef.current?.scrollIntoView({ behavior: "smooth" })
+            }
+            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:scale-105 transform transition-all duration-300 text-white px-5 py-2 sm:px-6 sm:py-3 rounded-xl shadow-lg text-sm sm:text-base"
           >
             Try Free Demo
           </button>
-
-          <Link
-            to="/login"
-            className="bg-white text-gray-900 px-8 py-4 rounded-xl shadow hover:scale-105 transform transition-all duration-300"
+          <button
+            onClick={() => (window.location.href = "/login")}
+            className="bg-white text-gray-900 px-5 py-2 sm:px-6 sm:py-3 rounded-xl shadow hover:scale-105 transform transition-all duration-300 text-sm sm:text-base"
           >
             Login
-          </Link>
+          </button>
         </motion.div>
       </section>
 
+      {/* About & Features */}
       <AboutAndFeatures
         aboutRef={aboutRef}
         aboutInView={aboutInView}
@@ -101,37 +97,36 @@ export default function HomePage() {
         featuresInView={featuresInView}
       />
 
-      {/* Free Demo Embedded */}
+      {/* Try Free Section */}
       <section
         id="try-free-section"
         ref={tryFreeRef}
-        className="min-h-screen p-6 md:p-24 bg-gradient-to-b from-white to-indigo-50"
+        className="mt-4 bg-gradient-to-b from-indigo-50 to-indigo-50 px-4 md:px-0"
       >
-        <motion.h2
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 1 }}
-        ></motion.h2>
         <TryFreePage />
       </section>
 
-      {/* Team */}
+      {/* Team Section */}
       <section
+        id="team"
         ref={teamRef}
-        className="min-h-screen p-6 md:p-24 bg-gradient-to-b from-white to-indigo-50"
+        className="py-12 md:py-24 bg-gradient-to-b from-indigo-50 to-indigo-50 relative overflow-hidden px-4 md:px-0"
       >
+        {/* Floating Orbs */}
+        <div className="absolute top-5 left-5 w-28 h-28 md:w-36 md:h-36 bg-purple-200/20 blur-3xl rounded-full"></div>
+        <div className="absolute bottom-5 right-5 w-36 h-36 md:w-48 md:h-48 bg-blue-200/20 blur-3xl rounded-full"></div>
+
         <motion.h2
           initial={{ opacity: 0, y: 50 }}
           animate={teamInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 1 }}
-          className="text-4xl font-bold mb-12 text-center text-gray-900"
+          className="text-2xl sm:text-3xl md:text-4xl font-bold mb-8 sm:mb-12 text-center text-gray-900"
         >
           Meet Our Team
         </motion.h2>
 
         <motion.div
-          className="grid md:grid-cols-4 gap-12 justify-items-center"
+          className="flex flex-wrap justify-center gap-6 sm:gap-12"
           initial={{ opacity: 0, y: 30 }}
           animate={teamInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 1.2, staggerChildren: 0.2 }}
@@ -140,33 +135,44 @@ export default function HomePage() {
             {
               name: "Kush Dastane",
               role: "Leader & Full-Stack Developer",
-              img: "/assets/team/kush.png",
+              img: "src/assets/team/pfp.png",
             },
             {
               name: "Pranav Chavan",
               role: "AR Developer",
-              img: "/assets/team/jane.png",
+              img: "src/assets/team/pranav.png",
             },
             {
               name: "Pushpak Khade",
               role: "UI/UX Designer",
-              img: "/assets/team/john.png",
+              img: "src/assets/team/pushpak.png",
             },
             {
               name: "Sudhanshu Ray",
               role: "Researcher",
-              img: "/assets/team/john.png",
+              img: "src/assets/team/sudhanshu.png",
             },
           ].map((member, idx) => (
-            <div key={idx} className="flex flex-col items-center text-center">
-              <img
-                src={member.img}
-                alt={member.name}
-                className="w-40 h-40 rounded-full object-cover mb-4 shadow-lg"
-              />
-              <h3 className="font-semibold text-xl">{member.name}</h3>
-              <p className="text-gray-600">{member.role}</p>
-            </div>
+            <motion.div
+              key={idx}
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 200 }}
+              className="flex flex-col items-center text-center w-36 sm:w-40"
+            >
+              <div className="w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 rounded-full overflow-hidden shadow-lg mb-3 sm:mb-4">
+                <img
+                  src={member.img}
+                  alt={member.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <h3 className="font-semibold text-base sm:text-lg md:text-xl text-gray-900">
+                {member.name}
+              </h3>
+              <p className="text-gray-500 text-sm sm:text-base md:text-base">
+                {member.role}
+              </p>
+            </motion.div>
           ))}
         </motion.div>
       </section>

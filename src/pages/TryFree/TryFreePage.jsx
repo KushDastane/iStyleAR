@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
+import { FaTshirt } from "react-icons/fa";
 
 export default function TryFreePage() {
   const [selectedDress, setSelectedDress] = useState(null);
+  const [isTrying, setIsTrying] = useState(false);
 
-  // Preloaded 3 demo clothes
   const demoClothes = [
     {
       id: 1,
@@ -22,50 +25,114 @@ export default function TryFreePage() {
     },
   ];
 
+  const handleTryOn = () => {
+    if (selectedDress) setIsTrying(true);
+  };
+
+  const handleReset = () => {
+    setSelectedDress(null);
+    setIsTrying(false);
+  };
+
   return (
-    <div className="min-h-screen p-6 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-4">Try Free AR Demo</h1>
-      <p className="mb-6 text-gray-600">
-        No login required. Try 3 clothes for free!
-      </p>
+    <section className="flex flex-col items-center justify-center px-6 py-8 bg-gradient-to-b from-white to-indigo-50">
+      <motion.div
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+        viewport={{ once: true }}
+        className="max-w-3xl w-full text-center"
+      >
+        {/* Header */}
+        <FaTshirt className="text-indigo-600 w-10 h-10 mx-auto mb-3" />
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+          Try Our Free AR Demo
+        </h1>
+        <p className="text-gray-500 mb-10">
+          Choose one of our sample outfits and preview it instantly. Want to try
+          your own?{" "}
+          <Link to="/register" className="text-indigo-600 hover:underline">
+            Sign up
+          </Link>
+          .
+        </p>
 
-      {/* Dress Selection */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {demoClothes.map((dress) => (
-          <div
-            key={dress.id}
-            className={`border-2 p-2 rounded-lg cursor-pointer ${
-              selectedDress?.id === dress.id
-                ? "border-blue-500"
-                : "border-gray-300"
-            }`}
-            onClick={() => setSelectedDress(dress)}
-          >
-            <img
-              src={dress.img}
-              alt={dress.name}
-              className="w-32 h-32 object-contain"
-            />
-            <p className="text-center mt-2">{dress.name}</p>
+        {/* Clothes grid */}
+        <motion.div
+          className="flex flex-wrap justify-center gap-6 mb-10"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          viewport={{ once: true }}
+        >
+          {demoClothes.map((dress) => (
+            <div
+              key={dress.id}
+              onClick={() => setSelectedDress(dress)}
+              className={`border rounded-xl p-4 cursor-pointer transition-all duration-300 ${
+                selectedDress?.id === dress.id
+                  ? "border-indigo-500 shadow-sm scale-105"
+                  : "border-gray-200 hover:border-gray-300"
+              }`}
+            >
+              <img
+                src={dress.img}
+                alt={dress.name}
+                className="w-28 h-28 md:w-32 md:h-32 object-contain"
+              />
+              <p className="text-sm mt-2 text-gray-700">{dress.name}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Preview Box */}
+        <motion.div
+          className="flex flex-col items-center"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          viewport={{ once: true }}
+        >
+          <div className="w-64 h-64 border border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 mb-4 overflow-hidden relative">
+            {isTrying && selectedDress ? (
+              <motion.img
+                key={selectedDress.id}
+                src={selectedDress.img}
+                alt="AR Preview"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6 }}
+                className="w-full h-full object-contain"
+              />
+            ) : selectedDress ? (
+              <p className="text-gray-400">Click “Try On” to preview</p>
+            ) : (
+              <p className="text-gray-400">Select a dress to begin</p>
+            )}
           </div>
-        ))}
-      </div>
 
-      {/* AR Overlay Preview */}
-      {selectedDress ? (
-        <div className="w-64 h-64 border-2 border-gray-300 rounded-md flex items-center justify-center">
-          {/* Replace this img with actual AR canvas overlay later */}
-          <img
-            src={selectedDress.img}
-            alt="try-on"
-            className="w-full h-full object-contain rounded-md"
-          />
-        </div>
-      ) : (
-        <div className="w-64 h-64 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center">
-          <span className="text-gray-400">Select a dress to try</span>
-        </div>
-      )}
-    </div>
+          {/* Action buttons */}
+          <div className="flex flex-wrap justify-center gap-4">
+            <button
+              onClick={handleTryOn}
+              disabled={!selectedDress}
+              className={`px-6 py-2 rounded-lg text-white transition ${
+                selectedDress
+                  ? "bg-indigo-600 hover:bg-indigo-700"
+                  : "bg-gray-300 cursor-not-allowed"
+              }`}
+            >
+              Try On
+            </button>
+            <button
+              onClick={handleReset}
+              className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
+            >
+              Reset
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </section>
   );
 }

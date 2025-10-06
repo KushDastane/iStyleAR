@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../firebase/config";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/useAuth";
-import { useLocation } from "react-router-dom";
 import {
   collection,
   addDoc,
@@ -11,73 +10,65 @@ import {
   getDoc,
   updateDoc,
   serverTimestamp,
+  getDocs,
 } from "firebase/firestore";
+import CreativeCarousel from "../../Components/CreativeCarousel";
 
 export default function UserTryOn() {
   const { user } = useAuth();
-  const location = useLocation();
-  const clothFromState = location.state?.cloth;
   const [freeTryonsLeft, setFreeTryonsLeft] = useState(0);
+  const [wardrobeItems, setWardrobeItems] = useState([]);
   const [selectedDress, setSelectedDress] = useState(null);
   const [tryOnImage, setTryOnImage] = useState(null);
+  const [selectedSize, setSelectedSize] = useState("M");
   const [isPublic, setIsPublic] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // eslint-disable-next-line no-unused-vars
-  const canvasRef = useRef(null); // optional for AR rendering
+  const sizes = ["S", "M", "L", "XL", "XXL"];
 
-  // Preloaded catalog of clothes (can be replaced with Firestore images later)
-  const catalog = [
-    { id: 1, name: "Red Shirt", img: "/assets/shirts/red.png" },
-    { id: 2, name: "Blue Jacket", img: "/assets/shirts/blue.png" },
-    { id: 3, name: "Green Hoodie", img: "/assets/shirts/green.png" },
-    { id: 4, name: "Yellow T-Shirt", img: "/assets/shirts/yellow.png" },
-    { id: 5, name: "Gray Coat", img: "/assets/shirts/gray.png" },
-  ];
-
-  // If cloth from state, add to catalog and select it
-  useEffect(() => {
-    if (clothFromState) {
-      const wardrobeCloth = {
-        id: clothFromState.id || 'wardrobe-' + Date.now(),
-        name: clothFromState.name,
-        img: clothFromState.imageUrl,
-      };
-      setSelectedDress(wardrobeCloth);
-    }
-  }, [clothFromState]);
-
-  // Fetch user's free try-ons left
+  // Fetch user free try-ons
   useEffect(() => {
     if (!user) return;
-    const fetchData = async () => {
+    const fetchUserData = async () => {
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         setFreeTryonsLeft(userDoc.data().freeTryonsLeft ?? 15);
       } else {
-        // Initialize user with 15 free try-ons
         await updateDoc(doc(db, "users", user.uid), { freeTryonsLeft: 15 });
         setFreeTryonsLeft(15);
       }
     };
-    fetchData();
+    fetchUserData();
   }, [user]);
 
-  // Capture try-on (mock capture for now)
+  // Fetch wardrobe items
+  useEffect(() => {
+    if (!user) return;
+    const fetchWardrobe = async () => {
+      const wardrobeSnap = await getDocs(
+        collection(db, "users", user.uid, "wardrobe")
+      );
+      const items = wardrobeSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setWardrobeItems(items);
+      if (items.length > 0 && !selectedDress) setSelectedDress(items[0]);
+    };
+    fetchWardrobe();
+  }, [user]);
+
   const handleCaptureTryOn = () => {
     if (!selectedDress) return toast.error("Select a dress first!");
-    // Replace with AR canvas capture later
-    setTryOnImage(selectedDress.img);
+    setTryOnImage(selectedDress.imageUrl);
   };
 
   const handleUploadTryOn = async () => {
     if (!tryOnImage) return toast.error("Capture your try-on first!");
     if (freeTryonsLeft <= 0) return toast.error("No free try-ons left today!");
-
     setUploading(true);
 
     try {
-      // 1️⃣ Upload try-on image
       const tryOnRef = ref(
         storage,
         `tryfree/${user.uid}/tryOns/${Date.now()}_tryon.png`
@@ -87,36 +78,31 @@ export default function UserTryOn() {
       await uploadBytes(tryOnRef, blob);
       const tryOnUrl = await getDownloadURL(tryOnRef);
 
-      // 2️⃣ Save in user tries collection
       await addDoc(collection(db, "users", user.uid, "tries"), {
-        dressUrl: selectedDress.img,
+        dressUrl: selectedDress.imageUrl,
+        size: selectedSize,
         tryOnUrl,
         public: isPublic,
         rewardClaimed: false,
         timestamp: serverTimestamp(),
       });
 
-      // 3️⃣ If public, add to public gallery and reward user
       if (isPublic) {
         await addDoc(collection(db, "publicTries"), {
-          dressUrl: selectedDress.img,
+          dressUrl: selectedDress.imageUrl,
           tryOnUrl,
           userName: user.displayName ?? "Anonymous",
+          size: selectedSize,
           timestamp: serverTimestamp(),
         });
 
-        // Increment free try-ons
         const userRef = doc(db, "users", user.uid);
         const newCount = freeTryonsLeft + 1;
         await updateDoc(userRef, { freeTryonsLeft: newCount });
         setFreeTryonsLeft(newCount);
-
         toast.success("Public try-on saved! +1 free try-on 🎉");
-      } else {
-        toast.success("Private try-on saved!");
-      }
+      } else toast.success("Private try-on saved!");
 
-      // Reset
       setTryOnImage(null);
       setIsPublic(false);
     } catch (err) {
@@ -128,76 +114,104 @@ export default function UserTryOn() {
   };
 
   return (
-    <div className="min-h-screen p-6 bg-gray-50 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-4">Try-On AR</h1>
-      <p className="mb-4 text-gray-600">
-        Free try-ons left today: {freeTryonsLeft}
-      </p>
-
-      {/* Dress Catalog */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
-        {catalog.map((dress) => (
-          <div
-            key={dress.id}
-            className={`border-2 p-2 rounded-lg cursor-pointer ${
-              selectedDress?.id === dress.id
-                ? "border-blue-500"
-                : "border-gray-300"
-            }`}
-            onClick={() => setSelectedDress(dress)}
-          >
-            <img
-              src={dress.img}
-              alt={dress.name}
-              className="w-32 h-32 object-contain"
-            />
-            <p className="text-center mt-2">{dress.name}</p>
-          </div>
-        ))}
+    <div className="min-h-screen p-4 md:p-6 bg-gray-50 flex flex-col items-center">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <h1 className="text-3xl md:text-5xl font-extrabold text-indigo-600">
+          Virtual Try-On
+        </h1>
+        <p className="text-gray-600 mt-2 text-sm md:text-base">
+          Select dress → Choose size → Capture → Save
+        </p>
       </div>
 
-      {/* Capture Try-On */}
-      <button
-        onClick={handleCaptureTryOn}
-        className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg mb-4"
-      >
-        Capture Try-On
-      </button>
+      {/* Free Try-ons */}
+      <div className="mb-6 bg-white shadow-md rounded-full px-6 py-2">
+        <span className="font-semibold text-gray-700">
+          Free Try-Ons Left: {freeTryonsLeft}
+        </span>
+      </div>
 
-      {/* Try-On Preview */}
-      {tryOnImage && (
-        <div className="w-64 h-64 border-2 border-gray-300 rounded-md flex items-center justify-center mb-4">
-          <img
-            src={tryOnImage}
-            alt="tryon"
-            className="w-full h-full object-contain rounded-md"
-          />
+      {/* Main Section */}
+      <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-6">
+        {/* Try-On Display */}
+        <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden">
+          {tryOnImage ? (
+            <img
+              src={tryOnImage}
+              alt={selectedDress?.name || "tryon"}
+              className="w-full h-full object-contain transition-all duration-300"
+            />
+          ) : (
+            <div className="flex items-center justify-center w-full h-full bg-gray-100 rounded-xl animate-pulse">
+              <p className="text-gray-500 text-center px-4">
+                Your Try-On will appear here
+              </p>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Public / Private Option */}
-      {tryOnImage && (
-        <label className="flex items-center space-x-2 mb-4">
-          <input
-            type="checkbox"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            className="w-4 h-4"
-          />
-          <span>Make this public & earn reward</span>
-        </label>
-      )}
+        {/* Wardrobe + Sizes */}
+        <div className="w-full lg:w-1/2 flex flex-col gap-4">
+          <div className="w-full bg-white rounded-xl shadow p-3">
+            <CreativeCarousel
+              items={wardrobeItems}
+              selectedItem={selectedDress}
+              onSelect={setSelectedDress}
+            />
+          </div>
 
-      {/* Upload Button */}
-      {tryOnImage && (
+          {selectedDress && (
+            <div className="flex flex-wrap justify-center gap-3 mt-2">
+              {sizes.map((size) => (
+                <button
+                  key={size}
+                  onClick={() => setSelectedSize(size)}
+                  className={`px-4 py-2 rounded-lg font-medium shadow transition ${
+                    selectedSize === size
+                      ? "bg-indigo-600 text-white"
+                      : "bg-white text-gray-700"
+                  }`}
+                >
+                  {size}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-col sm:flex-row items-center gap-4 mt-6 w-full max-w-2xl">
         <button
-          onClick={handleUploadTryOn}
-          disabled={uploading}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+          onClick={handleCaptureTryOn}
+          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition"
         >
-          {uploading ? "Uploading..." : "Save Try-On"}
+          Capture Try-On
         </button>
-      )}
+
+        {tryOnImage && (
+          <label className="flex items-center space-x-2 text-gray-700">
+            <input
+              type="checkbox"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span>Make Public & Earn Reward</span>
+          </label>
+        )}
+
+        {tryOnImage && (
+          <button
+            onClick={handleUploadTryOn}
+            disabled={uploading}
+            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50 transition"
+          >
+            {uploading ? "Uploading..." : "Save Try-On"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

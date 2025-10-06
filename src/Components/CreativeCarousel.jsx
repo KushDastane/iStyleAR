@@ -7,15 +7,17 @@ import "swiper/css/navigation";
 export default function CreativeCarousel({
   title,
   items,
-  onTryAgain,
+  selectedItem,
+  onSelect, // Pass selected dress setter from parent
   showTryAgain = true,
+  onTryAgain,
   buttonText = "Try Again",
 }) {
   const swiperRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [slidesPerView, setSlidesPerView] = useState(4);
 
-  // Responsive behavior
+  // Responsive slides
   useEffect(() => {
     const handleResize = () => {
       setSlidesPerView(
@@ -29,11 +31,8 @@ export default function CreativeCarousel({
 
   const maxIndex = Math.ceil(items.length / slidesPerView) - 1;
 
-  // Clamp activeIndex when slidesPerView or items.length changes
   useEffect(() => {
-    if (activeIndex > maxIndex) {
-      setActiveIndex(maxIndex >= 0 ? maxIndex : 0);
-    }
+    if (activeIndex > maxIndex) setActiveIndex(maxIndex >= 0 ? maxIndex : 0);
   }, [slidesPerView, items.length, maxIndex, activeIndex]);
 
   return (
@@ -79,14 +78,21 @@ export default function CreativeCarousel({
         allowTouchMove={true}
         className="w-full"
       >
-        {items.map((item, index) => (
-          <SwiperSlide key={index}>
-            <div className="bg-white rounded-xl overflow-hidden border border-gray-200 duration-300">
-              <div className="h-52 sm:h-56 md:h-64 w-full overflow-hidden">
+        {items.map((item) => (
+          <SwiperSlide key={item.id}>
+            <div
+              className={`bg-white rounded-xl overflow-hidden border duration-300 cursor-pointer ${
+                selectedItem?.id === item.id
+                  ? "border-indigo-600 shadow-lg"
+                  : "border-gray-200"
+              }`}
+              onClick={() => onSelect?.(item)} // select on click
+            >
+              <div className="h-40 sm:h-48 md:h-52 lg:h-44 xl:h-40 w-full  overflow-hidden">
                 <img
-                  src={item.img}
+                  src={item.imageUrl}
                   alt={item.name}
-                  className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  className="w-full h-full object-contain transition-transform duration-300 hover:scale-105"
                 />
               </div>
               <div className="mt-3 px-4 pb-5 flex flex-col gap-2">
@@ -111,7 +117,9 @@ export default function CreativeCarousel({
           <div className="w-36 h-1 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-purple-600 transition-all duration-500"
-              style={{ width: `${((activeIndex + 1) / (maxIndex + 1)) * 100}%` }}
+              style={{
+                width: `${((activeIndex + 1) / (maxIndex + 1)) * 100}%`,
+              }}
             />
           </div>
         </div>

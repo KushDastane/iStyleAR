@@ -12,40 +12,41 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  FaEdit,
+  FaTrash,
+  FaTshirt,
+  FaUpload,
+  FaSave,
+  FaTimes,
+  FaHeart,
+  FaRegHeart,
+  FaChartLine,
+} from "react-icons/fa";
 
 export default function VirtualWardrobe() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const location = useLocation();
+  const newItemFromTrending = location.state?.newItem || null;
+
   const [wardrobe, setWardrobe] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-
-  // Preloaded catalog clothes in Cloudinary
-  const catalog = [
-    {
-      id: 1,
-      name: "Red Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
-    },
-    {
-      id: 2,
-      name: "Blue Jacket",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
-    },
-    {
-      id: 3,
-      name: "Green Hoodie",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
-    },
-  ];
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [favorites, setFavorites] = useState([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    fetchWardrobe();
+    if (user) fetchWardrobe();
   }, [user]);
 
-  // Fetch user's wardrobe
+  useEffect(() => {
+    if (newItemFromTrending && user) addFromTrending(newItemFromTrending);
+  }, [newItemFromTrending, user]);
+
   const fetchWardrobe = async () => {
     const clothesSnap = await getDocs(
       collection(db, "users", user.uid, "wardrobe")
@@ -55,173 +56,268 @@ export default function VirtualWardrobe() {
       ...doc.data(),
     }));
     setWardrobe(clothesData);
+
+    const favs = clothesData.filter((c) => c.favorite).map((c) => c.id);
+    setFavorites(favs);
   };
 
   const handleFileChange = (e) => setSelectedFile(e.target.files[0]);
 
-  // Add cloth (catalog or uploaded)
   const handleAddCloth = async (cloth) => {
-    if (!user) return toast.error("Login first!");
+    if (!user) return toast.error("Please log in first!");
+    if (!selectedFile) return toast.error("Select an image!");
     setUploading(true);
 
     try {
-      let imageUrl = cloth.img;
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("upload_preset", "wardrobe");
+      formData.append("folder", `wardrobe/${user.uid}`);
 
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append("file", selectedFile);
-        formData.append("upload_preset", "wardrobe");
-        formData.append("folder", `wardrobe/${user.uid}`);
-
-        const res = await axios.post(
-          "https://api.cloudinary.com/v1_1/dyiaqidiq/image/upload",
-          formData
-        );
-        imageUrl = res.data.secure_url;
-      }
+      const res = await axios.post(
+        "https://api.cloudinary.com/v1_1/dyiaqidiq/image/upload",
+        formData
+      );
 
       await addDoc(collection(db, "users", user.uid, "wardrobe"), {
         name: cloth.name,
-        imageUrl,
+        imageUrl: res.data.secure_url,
         addedAt: serverTimestamp(),
-        source: selectedFile ? "userUpload" : "catalog",
+        source: "userUpload",
+        favorite: false,
       });
 
-      toast.success("Cloth added to your wardrobe!");
+      toast.success("Added to wardrobe!");
       setSelectedFile(null);
+      document.getElementById("userClothName").value = "";
       fetchWardrobe();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to add cloth.");
+    } catch {
+      toast.error("Upload failed.");
     }
     setUploading(false);
   };
 
-  // Delete cloth
-  const handleDeleteCloth = async (clothId) => {
+  const addFromTrending = async (item) => {
     try {
-      await deleteDoc(doc(db, "users", user.uid, "wardrobe", clothId));
-      toast.success("Cloth deleted!");
-      fetchWardrobe();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete cloth.");
-    }
-  };
-
-  // Edit cloth name
-  const handleEditCloth = async (clothId) => {
-    const newName = prompt("Enter new name for this cloth:");
-    if (!newName) return;
-
-    try {
-      await updateDoc(doc(db, "users", user.uid, "wardrobe", clothId), {
-        name: newName,
+      await addDoc(collection(db, "users", user.uid, "wardrobe"), {
+        name: item.name,
+        imageUrl: item.img,
+        addedAt: serverTimestamp(),
+        source: "trending",
+        favorite: false,
       });
-      toast.success("Cloth name updated!");
+      toast.success(`"${item.name}" added from Trending!`);
       fetchWardrobe();
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to update name.");
+    } catch {
+      toast.error("Failed to add item.");
     }
   };
+
+  const handleDeleteCloth = async (clothId) => {
+    await deleteDoc(doc(db, "users", user.uid, "wardrobe", clothId));
+    toast.success("Removed from wardrobe!");
+    fetchWardrobe();
+  };
+
+  const handleEditStart = (cloth) => {
+    setEditId(cloth.id);
+    setEditName(cloth.name);
+  };
+
+  const handleEditSave = async (clothId) => {
+    if (!editName.trim()) return toast.error("Name cannot be empty!");
+    await updateDoc(doc(db, "users", user.uid, "wardrobe", clothId), {
+      name: editName,
+    });
+    toast.success("Updated!");
+    setEditId(null);
+    fetchWardrobe();
+  };
+
+  const toggleFavorite = async (cloth) => {
+    const updated = !favorites.includes(cloth.id);
+    setFavorites((prev) =>
+      updated ? [...prev, cloth.id] : prev.filter((id) => id !== cloth.id)
+    );
+    await updateDoc(doc(db, "users", user.uid, "wardrobe", cloth.id), {
+      favorite: updated,
+    });
+  };
+
+  const displayedWardrobe = showFavoritesOnly
+    ? wardrobe.filter((c) => favorites.includes(c.id))
+    : wardrobe;
 
   return (
-    <div className="min-h-screen p-6 bg-gray-50">
-      <h1 className="text-3xl font-bold mb-6 text-center">Virtual Wardrobe</h1>
-
-      {/* Catalog section */}
-      <h2 className="text-xl font-semibold mb-2">Add from Catalog</h2>
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {catalog.map((cloth) => (
-          <div
-            key={cloth.id}
-            className="border p-2 rounded-lg flex flex-col items-center cursor-pointer hover:border-blue-500"
-          >
-            <img
-              src={cloth.img}
-              alt={cloth.name}
-              className="w-32 h-32 object-contain"
-            />
-            <p className="mt-2">{cloth.name}</p>
-            <button
-              onClick={() => handleAddCloth(cloth)}
-              className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg disabled:opacity-50"
-              disabled={uploading}
-            >
-              Add
-            </button>
+    <div className="min-h-screen bg-gray-50 py-10">
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Enhanced Creative Title */}
+        <div className="text-center mb-10 flex flex-col items-center gap-3 p-6 bg-gradient-to-r from-indigo-700 to-purple-700 rounded-2xl shadow-xl">
+          <div className="flex items-center justify-center gap-3">
+            <FaTshirt className="text-green-200 text-3xl transition-transform hover:scale-110" />
+            <h1 className="text-5xl font-extrabold text-white relative">
+              My Virtual Wardrobe
+              <span className="block h-1 w-24 bg-white/70 rounded-full mt-2 mx-auto"></span>
+            </h1>
+            <FaTshirt className="text-pink-300 text-3xl transition-transform hover:scale-110" />
           </div>
-        ))}
-      </div>
+          <p className="text-white/80 italic text-sm mt-1">
+            Organize, Try-On & Flaunt Your Style
+          </p>
+        </div>
 
-      {/* Upload your own cloth */}
-      <h2 className="text-xl font-semibold mb-2">Upload Your Cloth</h2>
-      <div className="mb-6 flex items-center space-x-2">
-        <input type="file" accept="image/*" onChange={handleFileChange} />
-        <input
-          type="text"
-          placeholder="Name your cloth"
-          className="border p-1 rounded"
-          id="userClothName"
-        />
-        <button
-          onClick={() => {
-            const nameInput =
-              document.getElementById("userClothName").value || "My Cloth";
-            handleAddCloth({ name: nameInput, img: null });
-          }}
-          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg disabled:opacity-50"
-          disabled={uploading || !selectedFile}
-        >
-          Upload
-        </button>
-      </div>
+        {/* Filter by Favorites */}
+        <div className="flex justify-end mb-6">
+          <button
+            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+            className={`flex items-center gap-2 p-2 rounded-full transition-transform transform hover:scale-105 ${
+              showFavoritesOnly
+                ? "bg-pink-500 text-white shadow-lg"
+                : "bg-white border border-gray-300"
+            }`}
+          >
+            {showFavoritesOnly ? <FaHeart /> : <FaRegHeart />}
+          </button>
+        </div>
 
-      {/* Wardrobe display */}
-      <h2 className="text-xl font-semibold mb-2">Your Wardrobe</h2>
-      {wardrobe.length === 0 ? (
-        <p className="text-gray-500">No clothes added yet.</p>
-      ) : (
-        <div className="grid grid-cols-3 gap-4">
-          {wardrobe.map((cloth) => (
+        {/* Wardrobe Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+          {displayedWardrobe.length === 0 && (
+            <div className="bg-white/70 p-10 rounded-3xl text-center shadow-md col-span-full">
+              <p className="text-gray-500 text-lg">No items to show.</p>
+            </div>
+          )}
+
+          {displayedWardrobe.map((cloth) => (
             <div
               key={cloth.id}
-              className="border p-2 rounded-lg flex flex-col items-center"
+              className="relative rounded-3xl bg-white shadow-md p-3 flex flex-col items-center hover:shadow-xl transition-transform transform hover:scale-3d"
             >
+              {/* Favorite Heart */}
+              <button
+                onClick={() => toggleFavorite(cloth)}
+                className="absolute top-3 right-3 text-lg text-pink-500 hover:scale-125 transition-transform"
+              >
+                {favorites.includes(cloth.id) ? <FaHeart /> : <FaRegHeart />}
+              </button>
+
               <img
                 src={cloth.imageUrl}
                 alt={cloth.name}
-                className="w-32 h-32 object-contain"
+                className="w-32 h-32 object-contain mb-2"
               />
-              <p className="mt-2">{cloth.name}</p>
 
-              <div className="flex space-x-2 mt-2">
+              {editId === cloth.id ? (
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="border p-1 rounded-md text-sm w-24"
+                  />
+                  <button
+                    onClick={() => handleEditSave(cloth.id)}
+                    className="text-green-600 hover:text-green-700"
+                  >
+                    <FaSave />
+                  </button>
+                  <button
+                    onClick={() => setEditId(null)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              ) : (
+                <p className="font-medium text-gray-700 text-sm mb-2 text-center">
+                  {cloth.name}
+                </p>
+              )}
+
+              <div className="flex gap-2 justify-center">
+                {/* Try-On Button */}
                 <button
-                  onClick={() => handleEditCloth(cloth.id)}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-2 py-1 rounded"
+                  onClick={() => navigate(`/user/try-on`, { state: { cloth } })}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
+                  title="Try On"
                 >
-                  Edit
+                  <FaTshirt />
+                  <span className="hidden sm:inline ml-1">Try On</span>
                 </button>
+
+                {/* Edit Button */}
+                <button
+                  onClick={() => handleEditStart(cloth)}
+                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
+                  title="Edit"
+                >
+                  <FaEdit />
+                  <span className="hidden sm:inline ml-1">Edit</span>
+                </button>
+
+                {/* Delete Button */}
                 <button
                   onClick={() => handleDeleteCloth(cloth.id)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded"
+                  className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
+                  title="Delete"
                 >
-                  Delete
-                </button>
-                <button
-                  onClick={() =>
-                    navigate(`/user/try-on`, { state: { cloth } })
-                  }
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded"
-                >
-                  Try On
+                  <FaTrash />
+                  <span className="hidden sm:inline ml-1">Delete</span>
                 </button>
               </div>
             </div>
           ))}
         </div>
-      )}
+
+        {/* Upload Section */}
+        <section className="mt-10">
+          <div className="flex flex-wrap items-center gap-2 bg-white p-4 rounded-3xl shadow-md">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="border p-2 rounded-xl text-sm"
+            />
+            <input
+              type="text"
+              placeholder="Name your item"
+              className="border p-2 rounded-xl text-sm flex-1 min-w-[150px]"
+              id="userClothName"
+            />
+            <button
+              onClick={() => {
+                const name =
+                  document.getElementById("userClothName").value || "My Item";
+                handleAddCloth({ name, img: null });
+              }}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-2xl flex items-center gap-2 text-sm transition disabled:opacity-50"
+              disabled={uploading || !selectedFile}
+            >
+              <FaUpload /> Upload
+            </button>
+          </div>
+        </section>
+
+        {/* Add from Trending */}
+        <div className="text-center mt-10">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold mb-2 flex items-center gap-2">
+                <FaTshirt /> Add from Trending
+              </h2>
+              <p className="text-indigo-100 text-sm">
+                Discover the most popular outfits and add them to your
+                collection.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/user/trending")}
+              className="bg-white text-indigo-700 px-5 py-2 rounded-2xl font-semibold flex items-center gap-2 hover:bg-indigo-100 transition"
+            >
+              Go to Trending <FaChartLine />
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,9 @@
 /* eslint-disable no-unused-vars */
 import { motion } from "framer-motion";
-import { FaTshirt, FaShareAlt, FaFolderOpen } from "react-icons/fa";
+import { FaTshirt, FaShareAlt, FaFolderOpen, FaUpload } from "react-icons/fa";
 import { GiClothes } from "react-icons/gi";
+import { HiArrowRight } from "react-icons/hi";
+import About from "../assets/hero/about.jpg";
 
 export default function AboutAndFeatures({
   aboutRef,
@@ -13,122 +15,179 @@ export default function AboutAndFeatures({
     <>
       {/* 🌟 About Section */}
       <section
+        id="about"
         ref={aboutRef}
-        className="relative min-h-screen flex flex-col md:flex-row items-center justify-center p-6 md:p-24 bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50 overflow-hidden"
+        className="relative flex flex-col md:flex-row items-center justify-center p-16 md:p-24 bg-gradient-to-r from-purple-50 via-purple-50/80 to-blue-50 overflow-hidden"
       >
-        {/* Floating gradient orbs in background */}
-        <div className="absolute -top-20 -left-20 w-72 h-72 bg-purple-300/30 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-300/30 rounded-full blur-3xl"></div>
+        {/* Subtle floating orbs */}
+        <div className="absolute -top-16 -left-16 w-64 h-64 bg-purple-300/20 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-16 right-16 w-80 h-80 bg-blue-300/20 rounded-full blur-3xl"></div>
 
+        {/* About Text + How It Works */}
         <motion.div
-          initial={{ opacity: 0, x: -80 }}
+          initial={{ opacity: 0, x: -50 }}
           animate={aboutInView ? { opacity: 1, x: 0 } : {}}
           transition={{ duration: 1 }}
-          className="md:w-1/2 mb-10 md:mb-0 z-10"
+          className="md:w-1/2 mb-10 md:mb-0 z-10 flex flex-col gap-12"
         >
-          <h2 className="text-5xl font-extrabold mb-6 text-gray-900 tracking-tight">
-            About{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-500">
-              iStyleAR
-            </span>
-          </h2>
-          <p className="text-gray-700 text-lg leading-relaxed">
-            We are a passionate team of creators building an advanced platform
-            for fashion lovers to explore, try, and express their style. With{" "}
-            <span className="font-semibold text-purple-900">
-              Augmented Reality
-            </span>
-            , you can virtually try on outfits, mix and match styles, and create
-            your own wardrobe collections — all from the comfort of your home.
-          </p>
+          {/* About Paragraph */}
+          <div>
+            <h2 className="text-5xl font-extrabold mb-6 text-gray-900 tracking-tight">
+              About{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-500">
+                iStyleAR
+              </span>
+            </h2>
+            <p className="text-gray-700 text-lg leading-relaxed md:text-left text-center">
+              We are a passionate team building a platform for fashion lovers to
+              explore, try, and express their style. With{" "}
+              <span className="font-semibold text-purple-900">
+                Augmented Reality
+              </span>
+              , you can virtually try outfits, mix and match styles, and curate
+              your wardrobe — all from home.
+            </p>
+          </div>
+
+          {/* How It Works Steps */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+            {/* Step 1 */}
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 200 }}
+              className="flex-1 flex flex-col items-center bg-purple-500/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg hover:shadow-xl h-full"
+            >
+              <FaUpload className="text-white text-4xl mb-3" />
+              <div className="font-bold text-white text-lg mb-1 text-center">
+                Upload
+              </div>
+              <p className="text-white text-center text-sm hidden sm:block">
+                Upload your outfit/photo
+              </p>
+            </motion.div>
+
+            {/* Arrow */}
+            <HiArrowRight className="hidden sm:block text-3xl text-gray-400 mx-2 mt-12" />
+
+            {/* Step 2 */}
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 200 }}
+              className="flex-1 flex flex-col items-center bg-blue-500/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg hover:shadow-xl h-full"
+            >
+              <GiClothes className="text-white text-4xl mb-3" />
+              <div className="font-bold text-white text-lg mb-1 text-center">
+                Try-On
+              </div>
+              <p className="text-white text-center text-sm hidden sm:block">
+                Virtually AR try on
+              </p>
+            </motion.div>
+
+            {/* Arrow */}
+            <HiArrowRight className="hidden sm:block text-3xl text-gray-400 mx-2 mt-12" />
+
+            {/* Step 3 */}
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 200 }}
+              className="flex-1 flex flex-col items-center bg-pink-500/80 backdrop-blur-sm p-6 rounded-2xl shadow-lg hover:shadow-xl h-full"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <FaFolderOpen className="text-white text-3xl" />
+              </div>
+              <div className="font-bold text-white text-lg mb-1 text-center">
+                Export
+              </div>
+              <p className="text-white text-center text-sm hidden sm:block">
+                Create style & share it
+              </p>
+            </motion.div>
+          </div>
         </motion.div>
 
+        {/* About Image */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={aboutInView ? { opacity: 1, scale: 1 } : {}}
           transition={{ duration: 1 }}
-          className="md:w-1/2 flex justify-center relative z-10"
+          className="md:w-1/2 flex justify-center z-10"
         >
           <motion.img
-            src="src/assets/hero/about.jpg"
+            src={About}
             alt="AR experience"
-            className="w-3/4 md:w-2/3 rounded-2xl shadow-2xl border border-white/60"
-            animate={{ y: [0, -10, 0] }}
+            className="w-3/4 md:w-2/3 rounded-2xl shadow-lg border border-white/40"
+            animate={{ y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
           />
         </motion.div>
       </section>
 
-      {/* 🚀 Features Section */}
+      {/* 🚀 Features Section with Dark Background */}
       <section
+        id="features"
         ref={featuresRef}
-        className="min-h-screen p-6 md:p-24 bg-gradient-to-b from-indigo-50 to-white relative overflow-hidden"
+        className="relative p-16 md:p-24 bg-gradient-to-r from-indigo-900 via-purple-900 to-blue-800 text-white overflow-hidden"
       >
-        <div className="absolute top-20 left-10 w-60 h-60 bg-purple-200/40 blur-3xl rounded-full"></div>
-        <div className="absolute bottom-20 right-10 w-72 h-72 bg-blue-200/40 blur-3xl rounded-full"></div>
+        {/* Floating Gradient Circles */}
+        <div className="absolute -top-20 -left-20 w-72 h-72 bg-purple-500/30 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-400/30 rounded-full blur-3xl"></div>
 
+        {/* Section Title */}
         <motion.h2
-          initial={{ opacity: 0, y: 50 }}
+          initial={{ opacity: 0, y: 40 }}
           animate={featuresInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 1 }}
-          className="text-4xl font-bold mb-16 text-center text-gray-900"
+          className="text-4xl font-bold mb-12 text-center text-white"
         >
           Our{" "}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
             Features
           </span>
         </motion.h2>
 
+        {/* Feature Cards */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={featuresInView ? { opacity: 1 } : {}}
           transition={{ duration: 1.2, staggerChildren: 0.2 }}
-          className="grid md:grid-cols-4 sm:grid-cols-2 gap-10 text-center z-10"
+          className="grid md:grid-cols-4 sm:grid-cols-2 gap-8 text-center z-10"
         >
           {[
             {
-              icon: (
-                <GiClothes size={40} className="text-indigo-600 mx-auto mb-4" />
-              ),
+              icon: <GiClothes size={36} className="text-white mx-auto mb-3" />,
               title: "Virtual Try-On",
-              desc: "Experience real-time AR outfit fitting on your body instantly.",
+              desc: "Real-time AR outfit fitting instantly.",
             },
             {
-              icon: (
-                <FaTshirt size={40} className="text-purple-600 mx-auto mb-4" />
-              ),
+              icon: <FaTshirt size={36} className="text-white mx-auto mb-3" />,
               title: "Mix & Match",
-              desc: "Combine different clothes and accessories to explore new looks.",
+              desc: "Combine clothes and accessories to explore new looks.",
             },
             {
               icon: (
-                <FaShareAlt size={40} className="text-blue-600 mx-auto mb-4" />
+                <FaShareAlt size={36} className="text-white mx-auto mb-3" />
               ),
-              title: "Share with Friends",
-              desc: "Post your styles and get feedback from your fashion circle.",
+              title: "Share Styles",
+              desc: "Post outfits and get feedback from friends.",
             },
             {
               icon: (
-                <FaFolderOpen
-                  size={40}
-                  className="text-pink-600 mx-auto mb-4"
-                />
+                <FaFolderOpen size={36} className="text-white mx-auto mb-3" />
               ),
               title: "Virtual Collection",
-              desc: "Save, organize, and showcase your favorite outfits anytime.",
+              desc: "Save and showcase your favorite outfits anytime.",
             },
           ].map((f, idx) => (
             <motion.div
               key={idx}
-              whileHover={{ scale: 1.08, rotateY: 5 }}
+              whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 200 }}
-              className="bg-white/70 backdrop-blur-lg p-8 rounded-2xl shadow-xl hover:shadow-2xl border border-white/40"
+              className="bg-white/10 backdrop-blur-md p-6 rounded-xl shadow-md hover:shadow-lg border border-white/20"
             >
               {f.icon}
-              <h3 className="font-semibold text-xl mb-3 text-gray-900">
-                {f.title}
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">{f.desc}</p>
+              <h3 className="font-semibold text-lg mb-2">{f.title}</h3>
+              <p className="text-white text-sm leading-relaxed">{f.desc}</p>
             </motion.div>
           ))}
         </motion.div>

@@ -10,54 +10,66 @@ export default function Dashboard() {
   const previousTries = [
     {
       name: "Red Dress",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
     },
     {
       name: "Blue Jacket",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
     },
     {
       name: "Casual Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
     },
     {
       name: "Red Dress",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
     },
     {
       name: "Blue Jacket",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
     },
     {
       name: "Casual Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
     },
   ];
 
   const topSuggestions = [
     {
       name: "Red Dress",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
     },
     {
       name: "Blue Jacket",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
     },
     {
       name: "Casual Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
     },
     {
       name: "Red Dress",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
     },
     {
       name: "Blue Jacket",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
     },
     {
       name: "Casual Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
+      imageUrl:
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
     },
   ];
 
@@ -87,12 +99,12 @@ export default function Dashboard() {
           {/* Quick Navigation Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
             <div
-              onClick={() => navigate("/try-free")}
+              onClick={() => navigate("/user/try-on")}
               className="cursor-pointer bg-white rounded-xl shadow-md p-6 flex flex-col justify-center items-center hover:shadow-lg transition transform hover:-translate-y-0.5"
             >
               <FaCamera className="text-indigo-600 w-7 h-7 mb-2" />
               <h2 className="text-gray-800 font-medium text-base mb-1">
-                Try Free AR
+                AR Try on
               </h2>
               <p className="text-gray-500 text-sm text-center">
                 Upload images & try clothes virtually
@@ -113,7 +125,7 @@ export default function Dashboard() {
             </div>
 
             <div
-              onClick={() => navigate("/trending")}
+              onClick={() => navigate("/user/trending")}
               className="cursor-pointer bg-white rounded-xl shadow-md p-6 flex flex-col justify-center items-center hover:shadow-lg transition transform hover:-translate-y-0.5"
             >
               <FaFire className="text-pink-600 w-7 h-7 mb-2" />
