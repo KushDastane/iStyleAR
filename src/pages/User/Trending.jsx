@@ -1,13 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { FaHeart, FaPlusCircle, FaFire, FaCheckCircle } from "react-icons/fa";
+import {
+  FaHeart,
+  FaRegHeart,
+  FaPlusCircle,
+  FaFire,
+  FaCheckCircle,
+} from "react-icons/fa";
 import { toast } from "react-toastify";
 import { db } from "../../firebase/config";
-import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+} from "firebase/firestore";
 import { useAuth } from "../../context/useAuth";
 
 export default function Trending() {
   const { user } = useAuth();
-  const [likedItems, setLikedItems] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [addingId, setAddingId] = useState(null);
   const [addedItems, setAddedItems] = useState([]);
 
@@ -94,11 +108,9 @@ export default function Trending() {
     outfit: trendingItems[4].img,
   };
 
-  const toggleLike = (id) => {
-    setLikedItems((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const displayedItems = showFavoritesOnly
+    ? trendingItems.filter((item) => favorites.includes(item.id))
+    : trendingItems;
 
   // ✅ Add to Firestore (specific button loading)
   const handleAddToWardrobe = async (item) => {
@@ -135,6 +147,26 @@ export default function Trending() {
     }
   };
 
+  const toggleFavorite = async (itemId) => {
+    const isFav = favorites.includes(itemId);
+    if (isFav) {
+      // remove
+      const q = query(
+        collection(db, "users", user.uid, "trendingFavorites"),
+        where("itemId", "==", itemId)
+      );
+      const snap = await getDocs(q);
+      snap.docs.forEach(async (doc) => await deleteDoc(doc.ref));
+      setFavorites((prev) => prev.filter((id) => id !== itemId));
+    } else {
+      // add
+      await addDoc(collection(db, "users", user.uid, "trendingFavorites"), {
+        itemId,
+      });
+      setFavorites((prev) => [...prev, itemId]);
+    }
+  };
+
   useEffect(() => {
     if (!user) return;
 
@@ -160,6 +192,23 @@ export default function Trending() {
     fetchAddedItems();
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchFavorites = async () => {
+      try {
+        const favSnap = await getDocs(
+          collection(db, "users", user.uid, "trendingFavorites")
+        );
+        const favIds = favSnap.docs.map((doc) => doc.data().itemId);
+        setFavorites(favIds);
+      } catch (err) {
+        console.error("Failed to fetch favorites:", err);
+      }
+    };
+
+    fetchFavorites();
+  }, [user]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
@@ -194,9 +243,26 @@ export default function Trending() {
 
         {/* 🔥 Trending Section */}
         <div className="mb-8 text-center md:text-left">
-          <h1 className="text-3xl md:text-4xl font-semibold text-gray-800 mb-1 flex justify-center md:justify-start items-center gap-2">
-            <FaFire className="text-pink-500" /> Trending Outfits
-          </h1>
+          <div className="flex flex-col md:flex-row md:justify-between items-center gap-3 mb-1">
+            {/* Title with Fire Icon */}
+            <h1 className="text-3xl md:text-4xl font-semibold text-gray-800 flex items-center gap-2">
+              <FaFire className="text-pink-500" />
+              Trending Outfits
+            </h1>
+
+            {/* Heart Filter Button */}
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`flex items-center justify-center p-2 rounded-full transition-transform transform hover:scale-105 ${
+                showFavoritesOnly
+                  ? "bg-pink-500 text-white shadow-lg"
+                  : "bg-white border border-gray-300"
+              }`}
+            >
+              {showFavoritesOnly ? <FaHeart /> : <FaRegHeart />}
+            </button>
+          </div>
+
           <p className="text-gray-500 text-sm md:text-base">
             See what others are wearing and get inspired
           </p>
@@ -204,7 +270,7 @@ export default function Trending() {
 
         {/* 🧥 Trending Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {trendingItems.map((item) => (
+          {displayedItems.map((item) => (
             <div
               key={item.id}
               className="bg-white rounded-2xl shadow-md hover:shadow-xl transition transform hover:-translate-y-1 overflow-hidden"
@@ -228,16 +294,14 @@ export default function Trending() {
 
                 {/* Like */}
                 <button
-                  onClick={() => toggleLike(item.id)}
+                  onClick={() => toggleFavorite(item.id)}
                   className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow-md hover:scale-110 transition"
                 >
-                  <FaHeart
-                    className={`w-5 h-5 ${
-                      likedItems.includes(item.id)
-                        ? "text-pink-600"
-                        : "text-gray-400"
-                    }`}
-                  />
+                  {favorites.includes(item.id) ? (
+                    <FaHeart className="w-5 h-5 text-pink-600" />
+                  ) : (
+                    <FaRegHeart className="w-5 h-5 text-gray-400" />
+                  )}
                 </button>
 
                 {/* Add / Added */}

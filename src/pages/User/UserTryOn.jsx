@@ -178,11 +178,17 @@ export default function UserTryOn() {
         {/* Wardrobe + Sizes */}
         <div className="w-full lg:w-1/2 flex flex-col gap-4">
           <div className="w-full bg-white rounded-xl shadow p-3">
-            <CreativeCarousel
-              items={wardrobeItems}
-              selectedItem={selectedDress}
-              onSelect={setSelectedDress}
-            />
+            {wardrobeItems.length > 0 ? (
+              <CreativeCarousel
+                items={wardrobeItems}
+                selectedItem={selectedDress}
+                onSelect={setSelectedDress}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-52 sm:h-56 md:h-60 lg:h-56 text-gray-500 text-center px-4">
+                Add items in cart first
+              </div>
+            )}
           </div>
 
           {selectedDress && (

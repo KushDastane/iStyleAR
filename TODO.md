@@ -1,2 +1,2 @@
-- [x] Add click outside and scroll down handlers to ProtectedLayout.jsx to close hamburger menu on mobile
-- [x] Add click outside and scroll down handlers to PublicNavbar.jsx to close hamburger menu on mobile
+- [x] Edit src/pages/User/UserTryOn.jsx to conditionally render CreativeCarousel or text when wardrobeItems is empty
+- [ ] Test the change by running the app and checking the Try On page
