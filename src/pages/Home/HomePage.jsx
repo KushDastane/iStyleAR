@@ -5,6 +5,10 @@ import { useInView } from "react-intersection-observer";
 import TryFreePage from "../TryFree/TryFreePage";
 import AboutAndFeatures from "../../Components/AboutAndFeatures";
 import PublicNavbar from "../../Components/PublicNavbar";
+import kushImg from "../../assets/team/pfp.png";
+import pranavImg from "../../assets/team/pranav.png";
+import pushpakImg from "../../assets/team/pushpak.png";
+import sudhanshuImg from "../../assets/team/sudhanshu.png";
 
 export default function HomePage() {
   const [aboutRef, aboutInView] = useInView({
@@ -135,22 +139,22 @@ export default function HomePage() {
             {
               name: "Kush Dastane",
               role: "Leader & Full-Stack Developer",
-              imgUrl: "src/assets/team/pfp.png",
+              img: kushImg,
             },
             {
               name: "Pranav Chavan",
               role: "AR Developer",
-              imgUrl: "src/assets/team/pranav.png",
+              img: pranavImg,
             },
             {
               name: "Pushpak Khade",
               role: "UI/UX Designer",
-              imgUrl: "src/assets/team/pushpak.png",
+              img: pushpakImg,
             },
             {
               name: "Sudhanshu Ray",
               role: "Researcher",
-              imgUrl: "src/assets/team/sudhanshu.png",
+              img: sudhanshuImg,
             },
           ].map((member, idx) => (
             <motion.div

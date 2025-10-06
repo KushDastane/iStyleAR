@@ -1,5 +1,4 @@
-# TODO: Reduce Space Around Try for Free Section
-
-- [ ] Update section className in HomePage.jsx
-- [ ] Remove empty motion.h2 element
-- [ ] Test the spacing on homepage
+- [x] Import team member images in HomePage.jsx
+- [x] Update team array to use imported image variables instead of string paths
+- [ ] Build the project to ensure images are bundled correctly
+- [ ] Deploy to Netlify and verify team images are visible
