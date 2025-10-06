@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 
 // Public Pages
 import HomePage from "./pages/Home/HomePage";
@@ -7,7 +7,6 @@ import TryFreePage from "./pages/TryFree/TryFreePage";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
 import Onboarding from "./pages/Auth/Onboarding";
-import HowItWorks from "./pages/Home/HowItWorks";
 import FAQ from "./pages/Home/FAQ";
 import ContactUs from "./pages/Home/ContactUs";
 import TestimonialsPage from "./pages/Home/TestimonialsPage";
@@ -26,52 +25,57 @@ import Settings from "./pages/User/Settings";
 import PrivateRoute from "./Components/PrivateRoute";
 import ProtectedLayout from "./Components/ProtectedLayout";
 
-// Optional: Footer for public pages
+// Footer
 import Footer from "./Components/Footer";
 
-function App() {
+function AppRoutes() {
+  const { user } = useAuth();
+
+  return (
+    <Routes>
+      {/* ---------- PUBLIC ROUTES ---------- */}
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/faq" element={<FAQ />} />
+      <Route path="/contact" element={<ContactUs />} />
+      <Route path="/testimonials" element={<TestimonialsPage />} />
+      <Route path="/terms" element={<TermsAndPrivacy />} />
+      <Route path="/try-free" element={<TryFreePage />} />
+
+      {/* ---------- PROTECTED ROUTES ---------- */}
+      <Route
+        path="/user/*"
+        element={
+          <PrivateRoute>
+            <ProtectedLayout />
+          </PrivateRoute>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="trending" element={<Trending />} />
+        <Route path="try-on" element={<UserTryOn />} />
+        <Route path="wardrobe" element={<VirtualWardrobe />} />
+        <Route path="outfit-builder" element={<OutfitBuilder />} />
+        <Route path="community" element={<Community />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
+
+      {/* ---------- FALLBACK ---------- */}
+      <Route path="*" element={<HomePage />} />
+    </Routes>
+  );
+}
+
+export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          {/* ---------- PUBLIC ROUTES ---------- */}
-          {/* Public Routes */}
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-
-          {/* ---------- AUTH ROUTES ---------- */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-
-          {/* ---------- PROTECTED ROUTES (NAVBAR inside ProtectedLayout) ---------- */}
-          <Route
-            element={
-              <PrivateRoute>
-                <ProtectedLayout />
-              </PrivateRoute>
-            }
-          >
-            <Route path="/user" element={<Dashboard />} />
-            <Route path="/user/wardrobe" element={<VirtualWardrobe />} />
-            <Route path="/user/try-on" element={<UserTryOn />} />
-            <Route path="/user/outfit-builder" element={<OutfitBuilder />} />
-            <Route path="/user/community" element={<Community />} />
-            <Route path="/user/settings" element={<Settings />} />
-
-            <Route path="/user/trending" element={<Trending />} />
-          </Route>
-
-          {/* ---------- FALLBACK ROUTE ---------- */}
-          <Route path="*" element={<HomePage />} />
-        </Routes>
-
-        {/* Footer visible only on public pages */}
+        <AppRoutes />
+        {/* Render Footer only for public pages */}
         <Footer />
       </Router>
     </AuthProvider>
   );
 }
-
-export default App;

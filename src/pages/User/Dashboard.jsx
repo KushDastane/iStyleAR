@@ -9,34 +9,19 @@ export default function Dashboard() {
 
   const previousTries = [
     {
-      name: "Red Dress",
-      imageUrl:
-        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
-    },
-    {
-      name: "Blue Jacket",
-      imageUrl:
-        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
-    },
-    {
       name: "Casual Shirt",
       imageUrl:
-        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736842/white_rnphno.png",
     },
     {
       name: "Red Dress",
       imageUrl:
-        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736843/dress_eopxzr.png",
     },
     {
       name: "Blue Jacket",
       imageUrl:
-        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
-    },
-    {
-      name: "Casual Shirt",
-      imageUrl:
-        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736844/bikesuit_arhlec.png",
     },
   ];
 
@@ -59,7 +44,7 @@ export default function Dashboard() {
     {
       name: "Red Dress",
       imageUrl:
-        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
+        "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736924/dress2_je9pre.png",
     },
     {
       name: "Blue Jacket",

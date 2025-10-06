@@ -13,6 +13,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import CreativeCarousel from "../../Components/CreativeCarousel";
+import { FaRegEye, FaMagic } from "react-icons/fa";
 
 export default function UserTryOn() {
   const { user } = useAuth();
@@ -116,13 +117,19 @@ export default function UserTryOn() {
   return (
     <div className="min-h-screen p-4 md:p-6 bg-gray-50 flex flex-col items-center">
       {/* Header */}
-      <div className="text-center mb-6">
-        <h1 className="text-3xl md:text-5xl font-extrabold text-indigo-600">
+      <div className="text-center mb-8 relative">
+        <h1 className="text-3xl md:text-5xl font-extrabold text-indigo-600 flex items-center justify-center gap-3 mx-auto">
+          <FaMagic className="text-purple-500" />
           Virtual Try-On
+          <FaRegEye className="text-purple-500" />
         </h1>
-        <p className="text-gray-600 mt-2 text-sm md:text-base">
-          Select dress → Choose size → Capture → Save
+
+        <p className="text-gray-600 mt-3 text-sm md:text-base max-w-xl mx-auto">
+          Select a dress → Choose your size → Capture → Save
         </p>
+
+        {/* Decorative underline */}
+        <div className="mt-4 h-1 w-24 md:w-32 mx-auto bg-indigo-300 rounded-full"></div>
       </div>
 
       {/* Free Try-ons */}
@@ -135,12 +142,12 @@ export default function UserTryOn() {
       {/* Main Section */}
       <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-6">
         {/* Try-On Display */}
-        <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden">
+        <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden relative">
           {tryOnImage ? (
             <img
               src={tryOnImage}
               alt={selectedDress?.name || "tryon"}
-              className="w-full h-full object-contain transition-all duration-300"
+              className="max-w-full max-h-full object-contain transition-all duration-300 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full bg-gray-100 rounded-xl animate-pulse">

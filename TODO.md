@@ -1,4 +1,1 @@
-- [x] Import team member images in HomePage.jsx
-- [x] Update team array to use imported image variables instead of string paths
-- [ ] Build the project to ensure images are bundled correctly
-- [ ] Deploy to Netlify and verify team images are visible
+- [x] Modify CreativeCarousel.jsx to conditionally add min-h-[320px] only when hasButton is true, making UserTryOn cards shorter without empty space while keeping Dashboard cards tall with buttons.
