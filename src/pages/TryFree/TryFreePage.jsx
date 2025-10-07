@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { FaTshirt } from "react-icons/fa";
@@ -6,6 +6,8 @@ import { FaTshirt } from "react-icons/fa";
 export default function TryFreePage() {
   const [selectedDress, setSelectedDress] = useState(null);
   const [isTrying, setIsTrying] = useState(false);
+  const [highlightTryOn, setHighlightTryOn] = useState(false);
+  const previewRef = useRef(null);
 
   const demoClothes = [
     {
@@ -24,6 +26,25 @@ export default function TryFreePage() {
       img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
     },
   ];
+
+  const handleDressSelect = (dress) => {
+    setSelectedDress(dress);
+    setIsTrying(false);
+    setHighlightTryOn(true);
+
+    // Scroll smoothly to preview section
+    setTimeout(() => {
+      previewRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 150);
+
+    // Stop button pulse after few seconds
+    setTimeout(() => {
+      setHighlightTryOn(false);
+    }, 4000);
+  };
 
   const handleTryOn = () => {
     if (selectedDress) setIsTrying(true);
@@ -68,7 +89,7 @@ export default function TryFreePage() {
           {demoClothes.map((dress) => (
             <div
               key={dress.id}
-              onClick={() => setSelectedDress(dress)}
+              onClick={() => handleDressSelect(dress)}
               className={`border rounded-xl p-4 cursor-pointer transition-all duration-300 ${
                 selectedDress?.id === dress.id
                   ? "border-indigo-500 shadow-sm scale-105"
@@ -87,6 +108,7 @@ export default function TryFreePage() {
 
         {/* Preview Box */}
         <motion.div
+          ref={previewRef}
           className="flex flex-col items-center"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -113,17 +135,79 @@ export default function TryFreePage() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap justify-center gap-4">
-            <button
-              onClick={handleTryOn}
+            <motion.button
+              onClick={() => {
+                handleTryOn();
+              }}
               disabled={!selectedDress}
-              className={`px-6 py-2 rounded-lg text-white transition ${
+              animate={
+                selectedDress
+                  ? {
+                      scale: [1, 1.07, 1],
+                    }
+                  : { scale: 1 }
+              }
+              transition={{
+                repeat: selectedDress ? Infinity : 0,
+                duration: 1.6,
+                ease: "easeInOut",
+              }}
+              className={`relative overflow-hidden px-10 py-3 rounded-xl text-white font-bold tracking-wide uppercase transition-all duration-200 shadow-lg ${
                 selectedDress
                   ? "bg-indigo-600 hover:bg-indigo-700"
                   : "bg-gray-300 cursor-not-allowed"
               }`}
             >
-              Try On
-            </button>
+              {/* INNER SHIMMER GLOW */}
+              {selectedDress && (
+                <motion.span
+                  className="absolute inset-0 -z-0 rounded-xl bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),transparent_60%)]"
+                  animate={{
+                    opacity: [0.2, 0.6, 0.2],
+                    scale: [1, 1.15, 1],
+                  }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 2.5,
+                    ease: "easeInOut",
+                  }}
+                />
+              )}
+
+              {/* BUTTON TEXT */}
+              <span className="relative z-10">Try On</span>
+
+              {/* SHIMMER SWEEP */}
+              {selectedDress && (
+                <motion.span
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "100%" }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.6,
+                    ease: "easeInOut",
+                  }}
+                  style={{ mixBlendMode: "overlay" }}
+                />
+              )}
+
+              {/* PULSING BORDER */}
+              {selectedDress && (
+                <motion.span
+                  className="absolute inset-0 rounded-xl border border-indigo-400/60"
+                  animate={{
+                    opacity: [0.3, 0.9, 0.3],
+                  }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.5,
+                    ease: "easeInOut",
+                  }}
+                />
+              )}
+            </motion.button>
+
             <button
               onClick={handleReset}
               className="px-6 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition"

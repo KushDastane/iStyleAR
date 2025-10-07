@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuth } from "../../context/useAuth";
 import { useWardrobe } from "../../context/WardrobeContext";
 import CreativeCarousel from "../../Components/CreativeCarousel";
@@ -78,6 +79,10 @@ export default function Dashboard() {
       state: { cloth: { name: item.name, imageUrl: item.img } },
     });
   };
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 py-6">

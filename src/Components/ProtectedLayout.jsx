@@ -83,7 +83,9 @@ export default function ProtectedLayout() {
           {/* Right: Icons + Logout + Hamburger */}
           <div className="flex gap-2 items-center space-x-4 md:space-x-2">
             <FaShoppingCart
-              className="text-gray-700 w-6 h-6 cursor-pointer hover:text-purple-600"
+              className={`w-6 h-6 cursor-pointer hover:text-purple-600 ${
+                location.pathname === "/user/wardrobe" ? "text-purple-600" : "text-gray-700"
+              }`}
               onClick={() => {
                 if (!loading && user) navigate("/user/wardrobe");
               }}

@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase/config";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { FaUserAlt, FaLock } from "react-icons/fa";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../context/useAuth";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -19,11 +21,16 @@ export default function Login() {
     try {
       await signInWithEmailAndPassword(auth, form.email, form.password);
       toast.success("Login successful!");
-      navigate("/user");
     } catch (error) {
       toast.error(error.message);
     }
   };
+
+  useEffect(() => {
+    if (user) {
+      navigate("/user");
+    }
+  }, [user, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 to-blue-800 p-4 overflow-hidden">

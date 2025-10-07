@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../../firebase/config";
 import { toast } from "react-toastify";
@@ -26,6 +26,8 @@ export default function UserTryOn() {
   const [uploading, setUploading] = useState(false);
 
   const sizes = ["S", "M", "L", "XL", "XXL"];
+  const [highlightCapture, setHighlightCapture] = useState(false);
+  const actionsRef = useRef(null);
 
   // Fetch user free try-ons
   useEffect(() => {
@@ -58,6 +60,21 @@ export default function UserTryOn() {
     };
     fetchWardrobe();
   }, [user]);
+useEffect(() => {
+  if (selectedDress && actionsRef.current) {
+    const isMobile = window.innerWidth < 768;
+
+    actionsRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: isMobile ? "nearest" : "center",
+    });
+
+    // subtle highlight animation
+    setHighlightCapture(true);
+    setTimeout(() => setHighlightCapture(false), 1800);
+  }
+}, [selectedDress]);
+
 
   const handleCaptureTryOn = () => {
     if (!selectedDress) return toast.error("Select a dress first!");
@@ -169,7 +186,7 @@ export default function UserTryOn() {
           ) : (
             <div className="flex items-center justify-center w-full h-full bg-gray-100 rounded-xl animate-pulse">
               <p className="text-gray-500 text-center px-4">
-                Your Try-On will appear here
+                Your Try-On will appear here. Please select an item.
               </p>
             </div>
           )}
@@ -212,12 +229,25 @@ export default function UserTryOn() {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 mt-6 w-full max-w-2xl">
+      <div
+        ref={actionsRef}
+        className="flex flex-col sm:flex-row items-center gap-4 mt-6 w-full max-w-2xl"
+      >
         <button
           onClick={handleCaptureTryOn}
-          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition"
+          className="relative overflow-hidden flex-1 px-6 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition"
         >
           Capture Try-On
+          {/* Continuous dark shine */}
+          <span
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "linear-gradient(120deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.0) 100%)",
+              transform: "translateX(-100%)",
+              animation: "darkShine 2s linear infinite",
+            }}
+          />
         </button>
 
         {tryOnImage && (

@@ -1,2 +1,4 @@
-- [x] Edit src/pages/User/UserTryOn.jsx to conditionally render CreativeCarousel or text when wardrobeItems is empty
-- [ ] Test the change by running the app and checking the Try On page
+- [x] Add scroll to top useEffect in Trending.jsx
+- [x] Add scroll to top useEffect in Dashboard.jsx
+- [x] Add scroll to top useEffect in VirtualWardrobe.jsx
+- [x] Change scroll to smooth scroll in all three files

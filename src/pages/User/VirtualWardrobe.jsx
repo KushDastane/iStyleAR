@@ -49,6 +49,10 @@ export default function VirtualWardrobe() {
     if (newItemFromTrending && user) addFromTrending(newItemFromTrending);
   }, [newItemFromTrending, user]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   const fetchWardrobe = async () => {
     const clothesSnap = await getDocs(
       collection(db, "users", user.uid, "wardrobe")
