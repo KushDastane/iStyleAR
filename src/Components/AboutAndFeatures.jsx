@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { FaTshirt, FaShareAlt, FaFolderOpen, FaUpload } from "react-icons/fa";
 import { GiClothes } from "react-icons/gi";
 import { HiArrowRight } from "react-icons/hi";
-import About from "../assets/hero/about.jpg";
+import About from "../assets/hero/about3.png";
 
 export default function AboutAndFeatures({
   aboutRef,
@@ -107,11 +107,12 @@ export default function AboutAndFeatures({
       <section
         id="features"
         ref={featuresRef}
-        className="relative p-8 sm:p-16 md:p-24 bg-gradient-to-r from-indigo-900 via-purple-900 to-blue-800 text-white overflow-hidden"
+        className="relative p-8 sm:p-16 md:p-24 bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-black text-white overflow-hidden"
       >
         {/* Floating Gradient Circles */}
         <div className="absolute -top-20 -left-20 w-72 h-72 bg-purple-500/30 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-400/30 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-purple-400/30 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-10 left-100 w-96 h-96 bg-blue-400/30 rounded-full blur-3xl"></div>
 
         {/* Section Title */}
         <motion.h2

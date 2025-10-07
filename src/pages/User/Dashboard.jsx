@@ -16,17 +16,17 @@ export default function Dashboard() {
 
   const previousTries = [
     {
-      name: "Casual Shirt",
+      name: "Casual T-Shirt",
       imageUrl:
         "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736842/white_rnphno.png",
     },
     {
-      name: "Red Dress",
+      name: "Party-wear",
       imageUrl:
         "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736843/dress_eopxzr.png",
     },
     {
-      name: "Blue Jacket",
+      name: "Bike wear",
       imageUrl:
         "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736844/bikesuit_arhlec.png",
     },

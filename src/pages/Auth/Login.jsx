@@ -3,7 +3,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase/config";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { FaUserAlt, FaLock } from "react-icons/fa";
+import { FaUserAlt, FaLock, FaArrowLeft, FaHome } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 
@@ -33,7 +33,7 @@ export default function Login() {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 to-blue-800 p-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-black p-4 overflow-hidden">
       <div className="relative w-full max-w-md bg-white/20 backdrop-blur-lg rounded-3xl shadow-xl p-10 flex flex-col items-center">
         <h2 className="text-3xl font-bold mb-8 text-white text-center">
           Welcome Back
@@ -47,7 +47,7 @@ export default function Login() {
               placeholder="Email"
               value={form.email}
               onChange={handleChange}
-              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300"
               required
             />
           </div>
@@ -59,7 +59,7 @@ export default function Login() {
               placeholder="Password"
               value={form.password}
               onChange={handleChange}
-              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300"
               required
             />
           </div>
@@ -76,6 +76,20 @@ export default function Login() {
             Register
           </Link>
         </p>
+
+        <p className="mt-6 flex justify-center items-center gap-2 text-sm text-white/80">
+          <Link
+            to="/"
+            className="flex items-center gap-2 text-purple-300 hover:text-purple-400 transition-all duration-300 group"
+          >
+            <FaArrowLeft className="transition-transform duration-300 group-hover:-translate-x-1" />
+
+            <span className="font-medium group-hover:underline">
+              Back to Home
+            </span>
+          </Link>
+        </p>
+
         {/* Decorative floating blur circles */}
         <div className="absolute -top-16 -left-16 w-40 h-40 bg-purple-500/30 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
         <div className="absolute -bottom-16 -right-16 w-60 h-60 bg-blue-400/30 rounded-full blur-3xl animate-pulse pointer-events-none"></div>

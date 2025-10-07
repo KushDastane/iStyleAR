@@ -52,10 +52,10 @@ export default function Trending() {
     },
     {
       id: 3,
-      name: "Green T-Shirt",
+      name: "Party-wear",
       img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736843/dress_eopxzr.png",
       user: {
-        name: "Pranav",
+        name: "Anushka",
         avatar:
           "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
       },
@@ -64,7 +64,7 @@ export default function Trending() {
     },
     {
       id: 4,
-      name: "Red T-Shirt",
+      name: "Green T-Shirt",
       img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
       user: {
         name: "Deep",
@@ -88,7 +88,7 @@ export default function Trending() {
     },
     {
       id: 6,
-      name: "Green Hoodie",
+      name: "Blue T-shirt",
       img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
       user: {
         name: "Sudhanshu",

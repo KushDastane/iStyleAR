@@ -37,7 +37,7 @@ export default function HomePage() {
       <PublicNavbar />
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 text-white overflow-hidden px-4 md:px-0">
+      <section className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-black text-white overflow-hidden px-4 md:px-0">
         {/* Floating Orbs */}
         <motion.div
           className="absolute w-40 h-40 md:w-60 md:h-60 bg-purple-500/30 rounded-full filter blur-3xl top-1/4 left-1/3 pointer-events-none"

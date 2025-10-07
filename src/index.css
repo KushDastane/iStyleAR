@@ -3,6 +3,14 @@
 body {
   margin: 0;
   padding: 0;
+  background-color: white;
+  color: black;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.dark body {
+  background-color: #1a202c; /* gray-900 */
+  color: white;
 }
 
 /* in your global CSS file, e.g., index.css */
@@ -24,4 +32,9 @@ input:-webkit-autofill:active {
 .swiper-pagination {
   margin-top: 1rem;
   position: relative;
+}
+
+/* Auth input cursor color */
+.auth-input {
+  caret-color: black;
 }

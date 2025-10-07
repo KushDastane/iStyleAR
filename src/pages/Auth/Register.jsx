@@ -38,7 +38,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 to-blue-800 p-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-black p-4 overflow-hidden">
       <div className="relative w-full max-w-md bg-white/20 backdrop-blur-lg rounded-3xl shadow-xl p-10 flex flex-col items-center">
         <h2 className="text-3xl font-bold mb-8 text-white text-center">
           Create Account
@@ -54,7 +54,7 @@ export default function Register() {
               placeholder="Full Name"
               value={form.name}
               onChange={handleChange}
-              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300"
               required
             />
           </div>
@@ -68,7 +68,7 @@ export default function Register() {
               placeholder="Email"
               value={form.email}
               onChange={handleChange}
-              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300"
               required
             />
           </div>
@@ -82,7 +82,7 @@ export default function Register() {
               placeholder="Password"
               value={form.password}
               onChange={handleChange}
-              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-400"
+              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300"
               required
             />
           </div>
