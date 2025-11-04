@@ -22,6 +22,8 @@ import ProtectedLayout from "./Components/ProtectedLayout";
 import Footer from "./Components/Footer";
 
 function AppRoutes() {
+  console.log("ENV:", import.meta.env);
+
   return (
     <Routes>
       {/* ---------- PUBLIC ROUTES ---------- */}

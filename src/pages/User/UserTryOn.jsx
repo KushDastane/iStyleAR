@@ -295,6 +295,7 @@ export default function UserTryOn() {
                 playsInline
                 muted
                 className="absolute inset-0 w-full h-full object-cover"
+                style={{ transform: "scaleX(-1)" }}
               />
             )}
             <canvas

@@ -206,7 +206,10 @@ export default function TryFreePage() {
               playsInline
               muted
               className="w-full h-full object-cover"
-              style={{ display: stream ? "block" : "none" }}
+              style={{
+                display: stream ? "block" : "none",
+                transform: "scaleX(-1)",
+              }}
             />
             <canvas
               ref={canvasRef}
