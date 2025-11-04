@@ -1,5 +1,5 @@
 [build]
-builder = "python"
+builder = "railpack/python"
 
-[env]
-PORT = "8000"
+[deploy]
+start = "python app.py"
