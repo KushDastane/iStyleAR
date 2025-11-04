@@ -13,7 +13,8 @@ import {
   getDocs,
 } from "firebase/firestore";
 import CreativeCarousel from "../../Components/CreativeCarousel";
-import { FaRegEye, FaMagic } from "react-icons/fa";
+import { FaRegEye, FaMagic, FaCamera, FaStop } from "react-icons/fa";
+import axios from "axios";
 
 export default function UserTryOn() {
   const { user } = useAuth();
@@ -25,11 +26,18 @@ export default function UserTryOn() {
   const [isPublic, setIsPublic] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const sizes = ["S", "M", "L", "XL", "XXL"];
-  const [highlightCapture, setHighlightCapture] = useState(false);
-  const actionsRef = useRef(null);
+  const [stream, setStream] = useState(null);
+  const [isLiveTryOn, setIsLiveTryOn] = useState(false);
 
-  // Fetch user free try-ons
+  const sizes = ["S", "M", "L", "XL", "XXL"];
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const lastOverlayRef = useRef(null);
+  const isProcessingRef = useRef(false);
+  const isLiveTryOnRef = useRef(false);
+
+  // Fetch free try-ons
   useEffect(() => {
     if (!user) return;
     const fetchUserData = async () => {
@@ -60,25 +68,141 @@ export default function UserTryOn() {
     };
     fetchWardrobe();
   }, [user]);
-useEffect(() => {
-  if (selectedDress && actionsRef.current) {
-    const isMobile = window.innerWidth < 768;
 
-    actionsRef.current.scrollIntoView({
-      behavior: "smooth",
-      block: isMobile ? "nearest" : "center",
-    });
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
 
-    // subtle highlight animation
-    setHighlightCapture(true);
-    setTimeout(() => setHighlightCapture(false), 1800);
-  }
-}, [selectedDress]);
+  // Start webcam
+  const startWebcam = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      setStream(mediaStream);
 
+      await new Promise((resolve) => {
+        const checkRef = setInterval(() => {
+          if (videoRef.current) {
+            clearInterval(checkRef);
+            resolve();
+          }
+        }, 100);
+      });
+
+      videoRef.current.srcObject = mediaStream;
+      await videoRef.current.play();
+    } catch (err) {
+      console.error("Webcam error:", err);
+      alert("Unable to access webcam. Please allow camera permissions.");
+    }
+  };
+
+  // Process frame
+  const processFrame = async () => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+
+    if (!canvas || !video) return;
+
+    // Update canvas size if needed
+    if (
+      canvas.width !== video.videoWidth ||
+      canvas.height !== video.videoHeight
+    ) {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+    }
+
+    const ctx = canvas.getContext("2d");
+
+    // Draw video first
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Draw last overlay if available
+    if (lastOverlayRef.current) {
+      ctx.drawImage(lastOverlayRef.current, 0, 0, canvas.width, canvas.height);
+    }
+
+    // Only send to backend if not already processing
+    if (!isProcessingRef.current && selectedDress?.imageUrl) {
+      isProcessingRef.current = true;
+      try {
+        const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/tryon`,
+          {
+            frame: frameData,
+            shirtUrl: selectedDress.imageUrl,
+          }
+        );
+
+        if (response.data.result) {
+          const img = new Image();
+          img.onload = () => {
+            lastOverlayRef.current = img;
+          };
+          img.src = `data:image/jpeg;base64,${response.data.result}`;
+        }
+      } catch (err) {
+        console.error("Backend error:", err);
+      } finally {
+        isProcessingRef.current = false;
+      }
+    }
+
+    if (isLiveTryOnRef.current) {
+      animationRef.current = requestAnimationFrame(processFrame);
+    }
+  };
+
+  const startLiveTryOn = async () => {
+    if (!selectedDress || !videoRef.current || !stream) return;
+
+    // Wait for video to be ready
+    if (videoRef.current.readyState < 2) {
+      setTimeout(startLiveTryOn, 200);
+      return;
+    }
+
+    setIsLiveTryOn(true);
+    isLiveTryOnRef.current = true;
+    animationRef.current = requestAnimationFrame(processFrame);
+  };
+
+  const stopLiveTryOn = () => {
+    setIsLiveTryOn(false);
+    isLiveTryOnRef.current = false;
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    isProcessingRef.current = false;
+  };
+
+  const handleReset = () => {
+    setSelectedDress(null);
+    stopLiveTryOn();
+    lastOverlayRef.current = null;
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+  };
 
   const handleCaptureTryOn = () => {
     if (!selectedDress) return toast.error("Select a dress first!");
-    setTryOnImage(selectedDress.imageUrl);
+    if (canvasRef.current && isLiveTryOn) {
+      const url = canvasRef.current.toDataURL("image/png");
+      setTryOnImage(url);
+      stopLiveTryOn();
+    } else {
+      setTryOnImage(selectedDress.imageUrl);
+    }
   };
 
   const handleUploadTryOn = async () => {
@@ -113,13 +237,14 @@ useEffect(() => {
           size: selectedSize,
           timestamp: serverTimestamp(),
         });
-
         const userRef = doc(db, "users", user.uid);
         const newCount = freeTryonsLeft + 1;
         await updateDoc(userRef, { freeTryonsLeft: newCount });
         setFreeTryonsLeft(newCount);
         toast.success("Public try-on saved! +1 free try-on 🎉");
-      } else toast.success("Private try-on saved!");
+      } else {
+        toast.success("Private try-on saved!");
+      }
 
       setTryOnImage(null);
       setIsPublic(false);
@@ -133,40 +258,25 @@ useEffect(() => {
 
   return (
     <div className="relative min-h-screen p-4 md:p-6 flex flex-col items-center overflow-hidden">
-      {/* 🌈 Soft Gradient Background */}
+      {/* Background & Header */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-indigo-200 to-blue-200 opacity-50 -z-10"></div>
-
-      {/* Floating Blur Circles */}
       <div className="absolute -top-32 -left-32 w-64 h-64 bg-purple-300/40 rounded-full blur-[120px] -z-10"></div>
       <div className="absolute bottom-0 right-0 w-72 h-72 bg-blue-300/40 rounded-full blur-[120px] -z-10"></div>
 
-      {/* Header — Compact Tech Banner */}
       <div className="text-center mb-8 relative bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white rounded-xl py-6 px-4 shadow-lg">
-        {/* Title */}
         <h1 className="text-2xl md:text-4xl font-extrabold flex items-center justify-center gap-2 tracking-tight">
           <FaMagic className="text-white/90" />
           <span className="drop-shadow-sm">Virtual Try-On</span>
           <FaRegEye className="text-white/90" />
         </h1>
-
-        {/* Subtitle */}
         <p className="mt-2 text-xs md:text-sm text-white/90 font-medium tracking-wide">
           Select a dress <span className="font-bold text-white/70">•</span>{" "}
           Choose your size <span className="font-bold text-white/70">•</span>{" "}
           Capture <span className="font-bold text-white/70">•</span> Save
         </p>
-
-        {/* Decorative divider */}
-        <div className="mt-3 h-[2px] w-20 mx-auto bg-white/40 rounded-full"></div>
-
-        {/* Soft lighting accent */}
-        <div className="absolute inset-0 overflow-hidden rounded-xl">
-          <div className="absolute top-0 left-1/3 w-40 h-40 bg-white/10 blur-2xl rounded-full"></div>
-          <div className="absolute bottom-0 right-1/3 w-44 h-44 bg-indigo-400/20 blur-3xl rounded-full"></div>
-        </div>
       </div>
 
-      {/* Free Try-ons Counter */}
+      {/* Free Try-ons */}
       <div className="mb-6 bg-white shadow-md rounded-full px-6 py-2">
         <span className="font-semibold text-gray-700">
           Free Try-Ons Left: {freeTryonsLeft}
@@ -177,22 +287,36 @@ useEffect(() => {
       <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-6">
         {/* Try-On Display */}
         <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden relative">
-          {tryOnImage ? (
-            <img
-              src={tryOnImage}
-              alt={selectedDress?.name || "tryon"}
-              className="max-w-full max-h-full object-contain absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300"
+          <div className="relative w-full h-full">
+            {stream && (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 w-full h-full object-cover"
             />
-          ) : (
-            <div className="flex items-center justify-center w-full h-full bg-gray-100 rounded-xl animate-pulse">
-              <p className="text-gray-500 text-center px-4">
-                Your Try-On will appear here. Please select an item.
-              </p>
-            </div>
-          )}
+            {!stream && !tryOnImage && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <p className="text-gray-500">Your Try-On will appear here.</p>
+              </div>
+            )}
+            {!stream && tryOnImage && (
+              <img
+                src={tryOnImage}
+                alt="tryon"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain"
+              />
+            )}
+          </div>
         </div>
 
-        {/* Wardrobe + Sizes */}
+        {/* Wardrobe */}
         <div className="w-full lg:w-1/2 flex flex-col gap-4">
           <div className="w-full bg-white rounded-xl shadow p-3">
             {wardrobeItems.length > 0 ? (
@@ -202,7 +326,7 @@ useEffect(() => {
                 onSelect={setSelectedDress}
               />
             ) : (
-              <div className="flex items-center justify-center h-52 sm:h-56 md:h-60 lg:h-56 text-gray-500 text-center px-4">
+              <div className="flex items-center justify-center h-52 text-gray-500 text-center px-4">
                 Add items in cart first
               </div>
             )}
@@ -229,47 +353,61 @@ useEffect(() => {
       </div>
 
       {/* Actions */}
-      <div
-        ref={actionsRef}
-        className="flex flex-col sm:flex-row items-center gap-4 mt-6 w-full max-w-2xl"
-      >
+      <div className="flex flex-col sm:flex-row items-center gap-4 mt-6 w-full max-w-2xl">
+        {!stream ? (
+          <button
+            onClick={startWebcam}
+            className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg"
+          >
+            Start Webcam
+          </button>
+        ) : !isLiveTryOn ? (
+          <button
+            onClick={startLiveTryOn}
+            className="flex-1 px-6 py-2 bg-purple-600 text-white rounded-lg"
+          >
+            Start Live Try-On
+          </button>
+        ) : (
+          <button
+            onClick={stopLiveTryOn}
+            className="flex-1 px-6 py-2 bg-red-600 text-white rounded-lg"
+          >
+            Stop Live Try-On
+          </button>
+        )}
+
         <button
           onClick={handleCaptureTryOn}
-          className="relative overflow-hidden flex-1 px-6 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition"
+          className="flex-1 px-6 py-2 bg-green-600 text-white rounded-lg"
         >
           Capture Try-On
-          {/* Continuous dark shine */}
-          <span
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "linear-gradient(120deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.0) 100%)",
-              transform: "translateX(-100%)",
-              animation: "darkShine 2s linear infinite",
-            }}
-          />
+        </button>
+        <button
+          onClick={handleReset}
+          className="flex-1 px-6 py-2 bg-gray-600 text-white rounded-lg"
+        >
+          Reset
         </button>
 
         {tryOnImage && (
-          <label className="flex items-center space-x-2 text-gray-700">
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(e) => setIsPublic(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span>Make Public & Earn Reward</span>
-          </label>
-        )}
-
-        {tryOnImage && (
-          <button
-            onClick={handleUploadTryOn}
-            disabled={uploading}
-            className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg disabled:opacity-50 transition"
-          >
-            {uploading ? "Uploading..." : "Save Try-On"}
-          </button>
+          <>
+            <label className="flex items-center space-x-2 text-gray-700">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              <span>Make Public & Earn Reward</span>
+            </label>
+            <button
+              onClick={handleUploadTryOn}
+              disabled={uploading}
+              className="flex-1 px-6 py-2 bg-blue-500 text-white rounded-lg"
+            >
+              {uploading ? "Uploading..." : "Save Try-On"}
+            </button>
+          </>
         )}
       </div>
     </div>

@@ -153,17 +153,17 @@ export default function HomePage() {
             },
             {
               name: "Pranav Chavan",
-              role: "AR Developer",
+              role: "AR Developer & 3D Modeling",
               img: pranavImg,
             },
             {
               name: "Pushpak Khade",
-              role: "UI/UX Designer",
+              role: "UI/UX Designer & Researcher",
               img: pushpakImg,
             },
             {
               name: "Sudhanshu Ray",
-              role: "Researcher",
+              role: "Firebase Developer & Researcher",
               img: sudhanshuImg,
             },
           ].map((member, idx) => (

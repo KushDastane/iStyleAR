@@ -1,13 +1,20 @@
 import { useState, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { FaTshirt } from "react-icons/fa";
+import { FaTshirt, FaCamera, FaStop } from "react-icons/fa";
+import axios from "axios";
 
 export default function TryFreePage() {
   const [selectedDress, setSelectedDress] = useState(null);
-  const [isTrying, setIsTrying] = useState(false);
-  const [highlightTryOn, setHighlightTryOn] = useState(false);
+  const [stream, setStream] = useState(null);
+  const [isLiveTryOn, setIsLiveTryOn] = useState(false);
+  const [loading, setLoading] = useState(false);
   const previewRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const processingRef = useRef(false);
+  const isLiveTryOnRef = useRef(false); // Use ref to avoid state update delay
+  const lastOverlayRef = useRef(null); // To persist the last overlay
 
   const demoClothes = [
     {
@@ -29,42 +36,134 @@ export default function TryFreePage() {
 
   const handleDressSelect = (dress) => {
     setSelectedDress(dress);
-    setIsTrying(false);
-    setHighlightTryOn(true);
-
-    // Scroll smoothly to preview section
     setTimeout(() => {
       previewRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
     }, 150);
-
-    // Stop button pulse after few seconds
-    setTimeout(() => {
-      setHighlightTryOn(false);
-    }, 4000);
-  };
-
-  const handleTryOn = () => {
-    if (selectedDress) setIsTrying(true);
   };
 
   const handleReset = () => {
     setSelectedDress(null);
-    setIsTrying(false);
+    setIsLiveTryOn(false);
+    isLiveTryOnRef.current = false;
+    lastOverlayRef.current = null; // Clear last overlay
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
+
+  const startWebcam = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error("Error accessing webcam:", err);
+      alert("Unable to access webcam. Please allow camera permissions.");
+    }
+  };
+
+  const processFrame = async () => {
+    if (
+      !selectedDress ||
+      !canvasRef.current ||
+      !videoRef.current ||
+      !isLiveTryOnRef.current ||
+      processingRef.current
+    ) {
+      if (isLiveTryOnRef.current)
+        animationRef.current = requestAnimationFrame(processFrame);
+      return;
+    }
+
+    processingRef.current = true;
+
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    const ctx = canvas.getContext("2d");
+
+    // Update canvas size
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw live video
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Draw last overlay if available
+    if (lastOverlayRef.current) {
+      ctx.drawImage(lastOverlayRef.current, 0, 0, canvas.width, canvas.height);
+    }
+
+    try {
+      const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/tryon`,
+        {
+          frame: frameData,
+          shirtUrl: selectedDress.img,
+        }
+      );
+
+      if (response.data.result) {
+        const resultImg = new Image();
+        resultImg.onload = () => {
+          lastOverlayRef.current = resultImg; // update overlay
+        };
+        resultImg.src = `data:image/jpeg;base64,${response.data.result}`;
+      }
+    } catch (err) {
+      console.error("API call failed:", err);
+    } finally {
+      processingRef.current = false;
+      if (isLiveTryOnRef.current) {
+        animationRef.current = requestAnimationFrame(processFrame);
+      }
+    }
+  };
+
+  const startLiveTryOn = () => {
+    if (!selectedDress || !stream) return;
+    setIsLiveTryOn(true);
+    isLiveTryOnRef.current = true; // Set ref immediately
+    setLoading(true);
+    animationRef.current = requestAnimationFrame(processFrame);
+    setTimeout(() => setLoading(false), 1000);
+  };
+
+  const stopLiveTryOn = () => {
+    setIsLiveTryOn(false);
+    isLiveTryOnRef.current = false; // Clear ref immediately
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    processingRef.current = false;
+    setLoading(false);
   };
 
   return (
     <section className="flex flex-col items-center justify-center px-6 py-8 bg-gradient-to-b from-white to-indigo-50">
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7 }}
-        viewport={{ once: true }}
-        className="max-w-3xl w-full text-center"
-      >
-        {/* Header */}
+      <div className="max-w-3xl w-full text-center">
         <FaTshirt className="text-indigo-600 w-10 h-10 mx-auto mb-3" />
         <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
           Try Our Free AR Demo
@@ -78,14 +177,7 @@ export default function TryFreePage() {
           .
         </p>
 
-        {/* Clothes grid */}
-        <motion.div
-          className="flex flex-wrap justify-center gap-6 mb-10"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          viewport={{ once: true }}
-        >
+        <div className="flex flex-wrap justify-center gap-6 mb-10">
           {demoClothes.map((dress) => (
             <div
               key={dress.id}
@@ -104,109 +196,70 @@ export default function TryFreePage() {
               <p className="text-sm mt-2 text-gray-700">{dress.name}</p>
             </div>
           ))}
-        </motion.div>
+        </div>
 
-        {/* Preview Box */}
-        <motion.div
-          ref={previewRef}
-          className="flex flex-col items-center"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          viewport={{ once: true }}
-        >
+        <div ref={previewRef} className="flex flex-col items-center">
           <div className="w-64 h-64 border border-gray-200 rounded-xl flex items-center justify-center bg-gray-50 mb-4 overflow-hidden relative">
-            {isTrying && selectedDress ? (
-              <motion.img
-                key={selectedDress.id}
-                src={selectedDress.img}
-                alt="AR Preview"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6 }}
-                className="w-full h-full object-contain"
-              />
-            ) : selectedDress ? (
-              <p className="text-gray-400">Click “Try On” to preview</p>
-            ) : (
-              <p className="text-gray-400">Select a dress to begin</p>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="w-full h-full object-cover"
+              style={{ display: stream ? "block" : "none" }}
+            />
+            <canvas
+              ref={canvasRef}
+              className="w-full h-full object-cover absolute inset-0"
+              style={{ display: isLiveTryOn ? "block" : "none" }}
+            />
+
+            {!stream && selectedDress && (
+              <p className="text-gray-400 absolute inset-0 flex items-center justify-center">
+                Click "Start Webcam" to begin
+              </p>
+            )}
+            {stream && !selectedDress && (
+              <p className="text-gray-400 absolute inset-0 flex items-center justify-center">
+                Select a dress to begin
+              </p>
+            )}
+            {loading && (
+              <p className="text-gray-400 absolute inset-0 flex items-center justify-center">
+                Starting live try-on...
+              </p>
             )}
           </div>
 
-          {/* Action buttons */}
           <div className="flex flex-wrap justify-center gap-4">
-            <motion.button
-              onClick={() => {
-                handleTryOn();
-              }}
-              disabled={!selectedDress}
-              animate={
-                selectedDress
-                  ? {
-                      scale: [1, 1.07, 1],
-                    }
-                  : { scale: 1 }
-              }
-              transition={{
-                repeat: selectedDress ? Infinity : 0,
-                duration: 1.6,
-                ease: "easeInOut",
-              }}
-              className={`relative overflow-hidden px-10 py-3 rounded-xl text-white font-bold tracking-wide uppercase transition-all duration-200 shadow-lg ${
-                selectedDress
-                  ? "bg-indigo-600 hover:bg-indigo-700"
-                  : "bg-gray-300 cursor-not-allowed"
-              }`}
-            >
-              {/* INNER SHIMMER GLOW */}
-              {selectedDress && (
-                <motion.span
-                  className="absolute inset-0 -z-0 rounded-xl bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),transparent_60%)]"
-                  animate={{
-                    opacity: [0.2, 0.6, 0.2],
-                    scale: [1, 1.15, 1],
-                  }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 2.5,
-                    ease: "easeInOut",
-                  }}
-                />
-              )}
+            {selectedDress && !stream && (
+              <button
+                onClick={startWebcam}
+                className="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition"
+              >
+                <FaCamera className="inline mr-2" />
+                Start Webcam
+              </button>
+            )}
 
-              {/* BUTTON TEXT */}
-              <span className="relative z-10">Try On</span>
+            {stream && selectedDress && !isLiveTryOn && (
+              <button
+                onClick={startLiveTryOn}
+                className="px-10 py-3 rounded-xl bg-indigo-600 text-white font-bold tracking-wide uppercase transition-all duration-200 shadow-lg hover:bg-indigo-700"
+              >
+                Start Live Try-On
+              </button>
+            )}
 
-              {/* SHIMMER SWEEP */}
-              {selectedDress && (
-                <motion.span
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
-                  initial={{ x: "-100%" }}
-                  animate={{ x: "100%" }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 1.6,
-                    ease: "easeInOut",
-                  }}
-                  style={{ mixBlendMode: "overlay" }}
-                />
-              )}
-
-              {/* PULSING BORDER */}
-              {selectedDress && (
-                <motion.span
-                  className="absolute inset-0 rounded-xl border border-indigo-400/60"
-                  animate={{
-                    opacity: [0.3, 0.9, 0.3],
-                  }}
-                  transition={{
-                    repeat: Infinity,
-                    duration: 1.5,
-                    ease: "easeInOut",
-                  }}
-                />
-              )}
-            </motion.button>
+            {isLiveTryOn && (
+              <button
+                onClick={stopLiveTryOn}
+                className="px-10 py-3 rounded-xl bg-red-600 text-white font-bold tracking-wide uppercase transition-all duration-200 shadow-lg hover:bg-indigo-700"
+              >
+                <FaStop className="inline mr-2" />
+                Stop Live Try-On
+              </button>
+            )}
 
             <button
               onClick={handleReset}
@@ -215,8 +268,8 @@ export default function TryFreePage() {
               Reset
             </button>
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </section>
   );
 }

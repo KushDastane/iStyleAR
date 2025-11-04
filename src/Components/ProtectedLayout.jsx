@@ -61,7 +61,7 @@ export default function ProtectedLayout() {
         <div className="max-w-7xl mx-auto px-6 lg:px-1 flex justify-between items-center h-16">
           {/* Left: Logo + App Name */}
           <div className="flex items-center space-x-3">
-            <img src={Logo} alt="iStyleAR" className="h-10 w-10" />
+            <img src={Logo} alt="iStyleAR" className="h-10 w-10 rounded-full" />
             <span className="font-bold text-xl text-gray-900">iStyleAR</span>
           </div>
 
