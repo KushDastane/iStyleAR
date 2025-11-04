@@ -1,5 +1,0 @@
-[build]
-builder = "railpack/python"
-
-[deploy]
-start = "python app.py"
