@@ -1,0 +1,8 @@
+flask-cors
+flask
+opencv-python-headless
+cvzone
+numpy
+requests
+mediapipe
+python-dotenv
