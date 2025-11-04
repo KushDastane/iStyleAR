@@ -163,7 +163,7 @@ export default function HomePage() {
             },
             {
               name: "Sudhanshu Ray",
-              role: "Firebase Developer & Researcher",
+              role: "Frontend Developer & Researcher",
               img: sudhanshuImg,
             },
           ].map((member, idx) => (
