@@ -13,6 +13,9 @@ from PIL import Image
 app = Flask(__name__)
 CORS(app, origins=["https://istylear.netlify.app", "http://localhost:5173"])
 
+@app.route("/")
+def home():
+    return jsonify({"message": "Try-On Backend is live 🚀"})
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(static_image_mode=False, model_complexity=1, enable_segmentation=False, min_detection_confidence=0.7, min_tracking_confidence=0.7)
