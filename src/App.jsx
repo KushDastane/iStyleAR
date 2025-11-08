@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { WardrobeProvider } from "./context/WardrobeContext";
+import { RecommendationProvider } from "./context/RecommendationContext";
 
 // Public Pages
 import HomePage from "./pages/Home/HomePage";
@@ -13,6 +14,7 @@ import Dashboard from "./pages/User/Dashboard";
 import Trending from "./pages/User/Trending";
 import UserTryOn from "./pages/User/UserTryOn";
 import VirtualWardrobe from "./pages/User/VirtualWardrobe";
+import ProfileSetup from "./pages/User/ProfileSetup";
 
 // Layouts & Routes
 import PrivateRoute from "./Components/PrivateRoute";
@@ -45,6 +47,7 @@ function AppRoutes() {
         <Route path="trending" element={<Trending />} />
         <Route path="try-on" element={<UserTryOn />} />
         <Route path="wardrobe" element={<VirtualWardrobe />} />
+        <Route path="profile" element={<ProfileSetup />} />
       </Route>
 
       {/* ---------- FALLBACK ---------- */}
@@ -57,11 +60,13 @@ export default function App() {
   return (
     <AuthProvider>
       <WardrobeProvider>
-        <Router>
-          <AppRoutes />
-          {/* Render Footer only for public pages */}
-          <Footer />
-        </Router>
+        <RecommendationProvider>
+          <Router>
+            <AppRoutes />
+            {/* Render Footer only for public pages */}
+            <Footer />
+          </Router>
+        </RecommendationProvider>
       </WardrobeProvider>
     </AuthProvider>
   );

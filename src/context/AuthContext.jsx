@@ -15,8 +15,20 @@ export const AuthProvider = ({ children }) => {
         try {
           const docRef = doc(db, "users", currentUser.uid);
           const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) setUser({ ...currentUser, ...docSnap.data() });
-          else setUser(currentUser);
+          if (docSnap.exists()) {
+            const userData = docSnap.data();
+            setUser({
+              ...currentUser,
+              ...userData,
+              avatar: userData.avatar || "/defaultpfp.png",
+              wardrobe: userData.wardrobe || [],
+              tryHistory: userData.tryHistory || [],
+              totalTryCount: userData.totalTryCount || 0,
+              totalUploads: userData.totalUploads || 0,
+              freeTryonsLeft: userData.freeTryonsLeft || 15,
+              profileCompleted: userData.profileCompleted || false,
+            });
+          } else setUser(currentUser);
         } catch (err) {
           console.error(err);
           setUser(currentUser);

@@ -12,6 +12,8 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
+  doc,
   query,
   where,
   deleteDoc,
@@ -20,92 +22,238 @@ import { useAuth } from "../../context/useAuth";
 
 export default function Trending() {
   const { user } = useAuth();
+const defaultAvatar = "/defaultpfp.png";
+  const defaultImage =
+    "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736842/white_rnphno.png";
   const [favorites, setFavorites] = useState([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [addingId, setAddingId] = useState(null);
   const [addedItems, setAddedItems] = useState([]);
+  const [trendingItems, setTrendingItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [starOfWeek, setStarOfWeek] = useState({
+    name: "Loading...",
+    avatar: defaultAvatar,
+    tryOns: 0,
+    outfit: defaultImage,
+  });
 
-  const trendingItems = [
-    {
-      id: 1,
-      name: "Biker Jacket",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736844/bikesuit_arhlec.png",
-      user: {
-        name: "Kush",
-        avatar:
-          "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
-      },
-      date: "Oct 5, 2025",
-      tryOns: 124,
-    },
-    {
-      id: 2,
-      name: "White T-Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736842/white_rnphno.png",
-      user: {
-        name: "Pushpak",
-        avatar:
-          "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
-      },
-      date: "Oct 4, 2025",
-      tryOns: 100,
-    },
-    {
-      id: 3,
-      name: "Party-wear",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736843/dress_eopxzr.png",
-      user: {
-        name: "Anushka",
-        avatar:
-          "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
-      },
-      date: "Oct 3, 2025",
-      tryOns: 120,
-    },
-    {
-      id: 4,
-      name: "Green T-Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
-      user: {
-        name: "Deep",
-        avatar:
-          "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
-      },
-      date: "Oct 5, 2025",
-      tryOns: 124,
-    },
-    {
-      id: 5,
-      name: "Punjabi",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736924/dress2_je9pre.png",
-      user: {
-        name: "Vidhi",
-        avatar:
-          "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
-      },
-      date: "Oct 4, 2025",
-      tryOns: 98,
-    },
-    {
-      id: 6,
-      name: "Blue T-shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
-      user: {
-        name: "Sudhanshu",
-        avatar:
-          "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
-      },
-      date: "Oct 3, 2025",
-      tryOns: 66,
-    },
-  ];
+  const fetchTrending = async () => {
+    try {
+      // First, fetch all items to get uploader info
+      const itemsSnap = await getDocs(collection(db, "items"));
+      const itemInfoMap = {};
+      itemsSnap.docs.forEach((doc) => {
+        const data = doc.data();
+        itemInfoMap[data.imageUrl] = {
+          uploaderId: data.uploaderId,
+          name: data.name,
+        };
+      });
 
-  const starOfWeek = {
-    name: "Yogini",
-    avatar:
-      "https://toppng.com/uploads/preview/user-account-management-logo-user-icon-11562867145a56rus2zwu.png",
-    tryOns: 127,
-    outfit: trendingItems[4].img,
+      const allUsersSnap = await getDocs(collection(db, "users"));
+      const itemMap = {};
+
+      for (const userDoc of allUsersSnap.docs) {
+        const wardrobeSnap = await getDocs(
+          collection(db, "users", userDoc.id, "wardrobe")
+        );
+        wardrobeSnap.docs.forEach((doc) => {
+          const data = doc.data();
+          const itemId = data.imageUrl; // assume unique per item
+          const itemInfo = itemInfoMap[itemId];
+
+          if (!itemMap[itemId]) {
+            itemMap[itemId] = {
+              id: itemId,
+              name: itemInfo?.name || data.name,
+              costumeImageUrl: data.imageUrl,
+              latestTryOnUrl: data.imageUrl, // use costume image
+              tryOns: 0,
+              uploaderId: data.uploaderId || itemInfo?.uploaderId || userDoc.id,
+              user: {
+                name:
+                  userDoc.data().name ||
+                  userDoc.data().displayName ||
+                  "Anonymous",
+                avatar: userDoc.data().avatar || defaultAvatar,
+              },
+              date:
+                data.addedAt?.toDate?.().toLocaleDateString?.() || "Unknown",
+              users: new Set(),
+            };
+          }
+          itemMap[itemId].users.add(userDoc.id);
+
+          // Update to latest user (last added)
+          itemMap[itemId].user = {
+            name:
+              userDoc.data().name || userDoc.data().displayName || "Anonymous",
+            avatar: userDoc.data().avatar || defaultAvatar,
+          };
+          itemMap[itemId].date =
+            data.addedAt?.toDate?.().toLocaleDateString?.() ||
+            itemMap[itemId].date;
+        });
+      }
+
+      // Fetch uploader data for items that have uploaderId
+      const uploaderIds = new Set(
+        Object.values(itemMap)
+          .map((item) => item.uploaderId)
+          .filter(Boolean)
+      );
+
+      const uploaderMap = {};
+      for (const id of uploaderIds) {
+        try {
+          const uploaderDoc = await getDoc(doc(db, "users", id));
+          if (uploaderDoc.exists()) {
+            uploaderMap[id] = uploaderDoc.data();
+          }
+        } catch (err) {
+          console.error("Error fetching uploader data for", id, err);
+        }
+      }
+
+      // Update items to show uploader info instead of last adder
+      Object.values(itemMap).forEach((item) => {
+        if (item.uploaderId && uploaderMap[item.uploaderId]) {
+          const uploaderData = uploaderMap[item.uploaderId];
+          item.user = {
+            name: uploaderData.name || uploaderData.displayName || "Anonymous",
+            avatar: uploaderData.avatar || defaultAvatar,
+          };
+        }
+        // If no uploaderId or no data, keep the last adder info (already set)
+      });
+
+      const items = Object.values(itemMap)
+        .map((item) => ({
+          ...item,
+          tryOns: item.users.size,
+        }))
+        .sort((a, b) => b.tryOns - a.tryOns)
+        .slice(0, 20);
+
+      setTrendingItems(items);
+      return items;
+    } catch (err) {
+      console.error("Failed to fetch trending items:", err);
+      toast.error("Failed to load trending outfits");
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const calculateStarOfWeek = async (items) => {
+    try {
+      console.log("Calculating star of week with items:", items.length);
+
+      // Group by uploaderId and sum tryOns
+      const uploaderMap = {};
+      items.forEach((item) => {
+        const uploaderId = item.uploaderId;
+        console.log(
+          "Item:",
+          item.name,
+          "uploaderId:",
+          uploaderId,
+          "tryOns:",
+          item.tryOns
+        );
+        if (uploaderId) {
+          if (!uploaderMap[uploaderId]) {
+            uploaderMap[uploaderId] = {
+              uploaderId,
+              totalAdds: 0,
+              items: [],
+            };
+          }
+          uploaderMap[uploaderId].totalAdds += item.tryOns;
+          uploaderMap[uploaderId].items.push(item);
+        }
+      });
+
+      console.log("Uploader map:", uploaderMap);
+
+      // Find top uploader
+      const topUploader = Object.values(uploaderMap).sort(
+        (a, b) => b.totalAdds - a.totalAdds
+      )[0];
+
+      console.log("Top uploader:", topUploader);
+
+      if (topUploader && topUploader.totalAdds > 0) {
+        try {
+          // Get uploader user data directly by document ID
+          const uploaderDoc = await getDoc(
+            doc(db, "users", topUploader.uploaderId)
+          );
+          const uploaderData = uploaderDoc.data();
+
+          console.log("Uploader data:", uploaderData);
+
+          if (uploaderData) {
+            setStarOfWeek({
+              name:
+                uploaderData.name || uploaderData.displayName || "Anonymous",
+              avatar: uploaderData.avatar || defaultAvatar,
+              tryOns: topUploader.totalAdds,
+              outfit: topUploader.items[0]?.costumeImageUrl || defaultImage,
+            });
+          } else {
+            setStarOfWeek({
+              name: "No Data",
+              avatar: defaultAvatar,
+              tryOns: 0,
+              outfit: defaultImage,
+            });
+          }
+        } catch (docErr) {
+          console.error("Error fetching uploader doc:", docErr);
+          setStarOfWeek({
+            name: "No Data",
+            avatar: defaultAvatar,
+            tryOns: 0,
+            outfit: defaultImage,
+          });
+        }
+      } else {
+        console.log("No top uploader found or no adds");
+        setStarOfWeek({
+          name: "No Data",
+          avatar: defaultAvatar,
+          tryOns: 0,
+          outfit: defaultImage,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to calculate star of week:", err);
+      setStarOfWeek({
+        name: "No Data",
+        avatar: defaultAvatar,
+        tryOns: 0,
+        outfit: defaultImage,
+      });
+    }
+  };
+
+  const fetchStarOfWeek = async () => {
+    try {
+      // Fetch trending items to get uploader stats
+      const trendingItems = await fetchTrending();
+      await calculateStarOfWeek(trendingItems);
+    } catch (err) {
+      console.error(" Failed to fetch star of week:", err);
+      setStarOfWeek({
+        name: "No Data",
+        avatar: defaultAvatar,
+        tryOns: 0,
+        outfit: defaultImage,
+      });
+    }
   };
 
   const displayedItems = showFavoritesOnly
@@ -120,7 +268,10 @@ export default function Trending() {
       setAddingId(item.id);
 
       const wardrobeRef = collection(db, "users", user.uid, "wardrobe");
-      const q = query(wardrobeRef, where("imageUrl", "==", item.img));
+      const q = query(
+        wardrobeRef,
+        where("imageUrl", "==", item.costumeImageUrl)
+      );
       const existing = await getDocs(q);
 
       if (!existing.empty) {
@@ -129,10 +280,10 @@ export default function Trending() {
         setAddingId(null);
         return;
       }
-
       await addDoc(wardrobeRef, {
         name: item.name,
-        imageUrl: item.img,
+        imageUrl: item.costumeImageUrl, // ⚠️ use costume, not user try-on
+        uploaderId: item.uploaderId,
         addedAt: new Date(),
         source: "trending",
       });
@@ -168,6 +319,11 @@ export default function Trending() {
   };
 
   useEffect(() => {
+    fetchTrending();
+    fetchStarOfWeek();
+  }, [user]); // Add user dependency to refetch when avatar changes
+
+  useEffect(() => {
     if (!user) return;
 
     const fetchAddedItems = async () => {
@@ -177,8 +333,10 @@ export default function Trending() {
         const ids = snapshot.docs
           .map((doc) => {
             const data = doc.data();
-            // match trendingItems by image URL
-            const item = trendingItems.find((t) => t.img === data.imageUrl);
+            // match trendingItems by costume image URL
+            const item = trendingItems.find(
+              (t) => t.costumeImageUrl === data.imageUrl
+            );
             return item?.id;
           })
           .filter(Boolean);
@@ -190,7 +348,7 @@ export default function Trending() {
     };
 
     fetchAddedItems();
-  }, [user]);
+  }, [user, trendingItems]);
 
   useEffect(() => {
     if (!user) return;
@@ -211,7 +369,7 @@ export default function Trending() {
   }, [user]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   return (
@@ -230,7 +388,7 @@ export default function Trending() {
                 Fashion Star of the Week 🌟
               </h2>
               <p className="text-sm text-indigo-100">
-                {starOfWeek.name}’s styles were tried by{" "}
+                {starOfWeek.name}’s uploaded costumes were added to cart by{" "}
                 <span className="font-semibold text-white">
                   {starOfWeek.tryOns}+
                 </span>{" "}
@@ -245,7 +403,7 @@ export default function Trending() {
           />
         </div>
 
-        {/* 🔥 Trending Section */}
+        {/* Trending Section */}
         <div className="mb-8 text-center md:text-left">
           <div className="flex flex-col md:flex-row md:justify-between items-center gap-3 mb-1">
             {/* Title with Fire Icon */}
@@ -273,87 +431,102 @@ export default function Trending() {
         </div>
 
         {/* 🧥 Trending Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {displayedItems.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-2xl shadow-md hover:shadow-xl transition transform hover:-translate-y-1 overflow-hidden"
-            >
-              {/* Outfit Image */}
-              <div className="relative w-full h-56">
-                <img
-                  src={item.img}
-                  alt={item.name}
-                  className="w-full h-full object-cover"
-                />
-
-                <span className="absolute top-2 left-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded-lg shadow-md">
-                  {item.name}
-                </span>
-
-                <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm text-gray-800 text-xs px-2 py-1 rounded-md flex items-center gap-1 shadow-md">
-                  <FaFire className="text-pink-500" />
-                  {item.tryOns} Try-Ons
-                </div>
-
-                {/* Like */}
-                <button
-                  onClick={() => toggleFavorite(item.id)}
-                  className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow-md hover:scale-110 transition"
-                >
-                  {favorites.includes(item.id) ? (
-                    <FaHeart className="w-5 h-5 text-pink-600" />
-                  ) : (
-                    <FaRegHeart className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
-
-                {/* Add / Added */}
-                <button
-                  onClick={() => handleAddToWardrobe(item)}
-                  disabled={
-                    addedItems.includes(item.id) || addingId === item.id
-                  }
-                  className={`absolute bottom-2 right-2 text-xs px-2 py-1 rounded-lg flex items-center gap-1 transition ${
-                    addedItems.includes(item.id)
-                      ? "bg-green-600 cursor-default text-white"
-                      : addingId === item.id
-                      ? "bg-gray-400 cursor-not-allowed text-white"
-                      : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                  }`}
-                >
-                  {addedItems.includes(item.id) ? (
-                    <>
-                      <FaCheckCircle /> Added
-                    </>
-                  ) : addingId === item.id ? (
-                    "Adding..."
-                  ) : (
-                    <>
-                      <FaPlusCircle /> Add
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* User Info */}
-              <div className="p-4 flex flex-col space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <img
-                      src={item.user.avatar}
-                      alt={item.user.name}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-indigo-100"
-                    />
-                    <span className="text-gray-700 font-medium text-sm">
-                      {item.user.name}
-                    </span>
-                  </div>
-                  <span className="text-gray-400 text-xs">{item.date}</span>
-                </div>
-              </div>
+        <div>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+              <span className="ml-4 text-gray-600">
+                Loading trending outfits...
+              </span>
             </div>
-          ))}
+          ) : displayedItems.length === 0 ? (
+            <div className="text-center py-20">
+              <p className="text-gray-500 text-lg">No trending items found.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {displayedItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white rounded-2xl shadow-md hover:shadow-xl transition transform hover:-translate-y-1 overflow-hidden"
+                >
+                  {/* Outfit Image */}
+                  <div className="relative w-full h-56">
+                    <img
+                      src={item.latestTryOnUrl} // show actual user try-on photo
+                      alt={item.name}
+                      className="w-full h-56 object-cover"
+                    />
+
+                    <span className="absolute top-2 left-2 bg-indigo-600 text-white text-xs px-2 py-1 rounded-lg shadow-md">
+                      {item.name}
+                    </span>
+
+                    <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm text-gray-800 text-xs px-2 py-1 rounded-md flex items-center gap-1 shadow-md">
+                      <FaFire className="text-pink-500" />
+                      {item.tryOns} Added to Cart
+                    </div>
+
+                    {/* Like */}
+                    <button
+                      onClick={() => toggleFavorite(item.id)}
+                      className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-1.5 rounded-full shadow-md hover:scale-110 transition"
+                    >
+                      {favorites.includes(item.id) ? (
+                        <FaHeart className="w-5 h-5 text-pink-600" />
+                      ) : (
+                        <FaRegHeart className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+
+                    {/* Add / Added */}
+                    <button
+                      onClick={() => handleAddToWardrobe(item)}
+                      disabled={
+                        addedItems.includes(item.id) || addingId === item.id
+                      }
+                      className={`absolute bottom-2 right-2 text-xs px-2 py-1 rounded-lg flex items-center gap-1 transition ${
+                        addedItems.includes(item.id)
+                          ? "bg-green-600 cursor-default text-white"
+                          : addingId === item.id
+                          ? "bg-gray-400 cursor-not-allowed text-white"
+                          : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      }`}
+                    >
+                      {addedItems.includes(item.id) ? (
+                        <>
+                          <FaCheckCircle /> Added
+                        </>
+                      ) : addingId === item.id ? (
+                        "Adding..."
+                      ) : (
+                        <>
+                          <FaPlusCircle /> Add
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* User Info */}
+                  <div className="p-4 flex flex-col space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <img
+                          src={item.user.avatar}
+                          alt={item.user.name}
+                          className="w-10 h-10 rounded-full object-cover border-2 border-indigo-100"
+                        />
+                        <span className="text-gray-700 font-medium text-sm">
+                          {item.user.name}
+                        </span>
+                      </div>
+                      <span className="text-gray-400 text-xs">{item.date}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

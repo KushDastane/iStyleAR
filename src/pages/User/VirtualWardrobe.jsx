@@ -34,6 +34,7 @@ export default function VirtualWardrobe() {
   const newItemFromTrending = location.state?.newItem || null;
 
   const [wardrobe, setWardrobe] = useState([]);
+  const [isLoadingWardrobe, setIsLoadingWardrobe] = useState(true);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -50,21 +51,26 @@ export default function VirtualWardrobe() {
   }, [newItemFromTrending, user]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   const fetchWardrobe = async () => {
-    const clothesSnap = await getDocs(
-      collection(db, "users", user.uid, "wardrobe")
-    );
-    const clothesData = clothesSnap.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setWardrobe(clothesData);
+    setIsLoadingWardrobe(true);
+    try {
+      const clothesSnap = await getDocs(
+        collection(db, "users", user.uid, "wardrobe")
+      );
+      const clothesData = clothesSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setWardrobe(clothesData);
 
-    const favs = clothesData.filter((c) => c.favorite).map((c) => c.id);
-    setFavorites(favs);
+      const favs = clothesData.filter((c) => c.favorite).map((c) => c.id);
+      setFavorites(favs);
+    } finally {
+      setIsLoadingWardrobe(false);
+    }
   };
 
   const handleFileChange = (e) => setSelectedFile(e.target.files[0]);
@@ -75,15 +81,15 @@ export default function VirtualWardrobe() {
     setUploading(true);
 
     try {
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-    formData.append("upload_preset", uploadPreset);
-    formData.append("folder", `wardrobe/${user.uid}`);
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("upload_preset", uploadPreset);
+      formData.append("folder", `wardrobe/${user.uid}`);
 
-    const res = await axios.post(
-      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      formData
-    );
+      const res = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        formData
+      );
 
       await addDoc(collection(db, "users", user.uid, "wardrobe"), {
         name: cloth.name,
@@ -188,90 +194,97 @@ export default function VirtualWardrobe() {
 
         {/* Wardrobe Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-          {displayedWardrobe.length === 0 && (
+          {isLoadingWardrobe ? (
+            <div className="flex justify-center items-center py-8 col-span-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+              <span className="ml-3 text-gray-600">Loading wardrobe...</span>
+            </div>
+          ) : displayedWardrobe.length === 0 ? (
             <div className="bg-white/70 p-10 rounded-3xl text-center shadow-md col-span-full">
               <p className="text-gray-500 text-lg">No items to show.</p>
             </div>
-          )}
-
-          {displayedWardrobe.map((cloth) => (
-            <div
-              key={cloth.id}
-              className="relative rounded-3xl bg-white shadow-md p-3 flex flex-col items-center hover:shadow-xl transition-transform transform hover:scale-3d"
-            >
-              {/* Favorite Heart */}
-              <button
-                onClick={() => toggleFavorite(cloth)}
-                className="absolute top-3 right-3 text-lg text-pink-500 hover:scale-125 transition-transform"
+          ) : (
+            displayedWardrobe.map((cloth) => (
+              <div
+                key={cloth.id}
+                className="relative rounded-3xl bg-white shadow-md p-3 flex flex-col items-center hover:shadow-xl transition-transform transform hover:scale-3d"
               >
-                {favorites.includes(cloth.id) ? <FaHeart /> : <FaRegHeart />}
-              </button>
+                {/* Favorite Heart */}
+                <button
+                  onClick={() => toggleFavorite(cloth)}
+                  className="absolute top-3 right-3 text-lg text-pink-500 hover:scale-125 transition-transform"
+                >
+                  {favorites.includes(cloth.id) ? <FaHeart /> : <FaRegHeart />}
+                </button>
 
-              <img
-                src={cloth.imageUrl}
-                alt={cloth.name}
-                className="w-32 h-32 object-contain mb-2"
-              />
+                <img
+                  src={cloth.imageUrl}
+                  alt={cloth.name}
+                  className="w-32 h-32 object-contain mb-2"
+                />
 
-              {editId === cloth.id ? (
-                <div className="flex items-center gap-2 mb-2">
-                  <input
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="border p-1 rounded-md text-sm w-24"
-                  />
+                {editId === cloth.id ? (
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="border p-1 rounded-md text-sm w-24"
+                    />
+                    <button
+                      onClick={() => handleEditSave(cloth.id)}
+                      className="text-green-600 hover:text-green-700"
+                    >
+                      <FaSave />
+                    </button>
+                    <button
+                      onClick={() => setEditId(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
+                ) : (
+                  <p className="font-medium text-gray-700 text-sm mb-2 text-center">
+                    {cloth.name}
+                  </p>
+                )}
+
+                <div className="flex gap-2 justify-center">
+                  {/* Try-On Button */}
                   <button
-                    onClick={() => handleEditSave(cloth.id)}
-                    className="text-green-600 hover:text-green-700"
+                    onClick={() =>
+                      navigate(`/user/try-on`, { state: { cloth } })
+                    }
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
+                    title="Try On"
                   >
-                    <FaSave />
+                    <FaTshirt />
+                    <span className="hidden sm:inline ml-1">Try On</span>
                   </button>
+
+                  {/* Edit Button */}
                   <button
-                    onClick={() => setEditId(null)}
-                    className="text-gray-500 hover:text-gray-700"
+                    onClick={() => handleEditStart(cloth)}
+                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
+                    title="Edit"
                   >
-                    <FaTimes />
+                    <FaEdit />
+                    <span className="hidden sm:inline ml-1">Edit</span>
+                  </button>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => handleDeleteCloth(cloth.id)}
+                    className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
+                    title="Delete"
+                  >
+                    <FaTrash />
+                    <span className="hidden sm:inline ml-1">Delete</span>
                   </button>
                 </div>
-              ) : (
-                <p className="font-medium text-gray-700 text-sm mb-2 text-center">
-                  {cloth.name}
-                </p>
-              )}
-
-              <div className="flex gap-2 justify-center">
-                {/* Try-On Button */}
-                <button
-                  onClick={() => navigate(`/user/try-on`, { state: { cloth } })}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
-                  title="Try On"
-                >
-                  <FaTshirt />
-                  <span className="hidden sm:inline ml-1">Try On</span>
-                </button>
-
-                {/* Edit Button */}
-                <button
-                  onClick={() => handleEditStart(cloth)}
-                  className="bg-yellow-400 hover:bg-yellow-500 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
-                  title="Edit"
-                >
-                  <FaEdit />
-                  <span className="hidden sm:inline ml-1">Edit</span>
-                </button>
-
-                {/* Delete Button */}
-                <button
-                  onClick={() => handleDeleteCloth(cloth.id)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
-                  title="Delete"
-                >
-                  <FaTrash />
-                  <span className="hidden sm:inline ml-1">Delete</span>
-                </button>
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Upload Section */}

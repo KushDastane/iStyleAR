@@ -7,8 +7,6 @@ import { toast } from "react-toastify";
 import Logo from "../assets/logo.png";
 import { useAuth } from "../context/useAuth";
 
-
-
 export default function ProtectedLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
@@ -84,13 +82,26 @@ export default function ProtectedLayout() {
           <div className="flex gap-2 items-center space-x-4 md:space-x-2">
             <FaShoppingCart
               className={`w-6 h-6 cursor-pointer hover:text-purple-600 ${
-                location.pathname === "/user/wardrobe" ? "text-purple-600" : "text-gray-700"
+                location.pathname === "/user/wardrobe"
+                  ? "text-purple-600"
+                  : "text-gray-700"
               }`}
               onClick={() => {
                 if (!loading && user) navigate("/user/wardrobe");
               }}
             />
-            <FaUserCircle className="text-gray-700 w-6 h-6 cursor-pointer hover:text-purple-600" />
+            {user && (
+              <img
+                src={user.avatar || "/defaultpfp.png"}
+                alt="Profile"
+                className={`w-8 h-8 rounded-full object-cover border-2 cursor-pointer hover:border-purple-600 ${
+                  location.pathname === "/user/profile"
+                    ? "border-purple-600 shadow-lg"
+                    : "border-gray-300"
+                }`}
+                onClick={() => navigate("/user/profile")}
+              />
+            )}
 
             {/* Desktop Logout */}
             <button

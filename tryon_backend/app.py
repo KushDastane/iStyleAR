@@ -9,9 +9,18 @@ import base64
 from io import BytesIO
 import requests
 from PIL import Image
+import cloudinary
+import cloudinary.uploader
 
 app = Flask(__name__)
 CORS(app, origins=["https://istylear.netlify.app", "http://localhost:5173"])
+
+# Cloudinary config
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET')
+)
 
 @app.route("/")
 def home():
@@ -42,6 +51,7 @@ def tryon():
         data = request.get_json()
         frame_data = data.get('frame')
         shirt_url = data.get('shirtUrl')
+        mode = data.get('mode', 'overlay')  # 'overlay' for live, 'full' for capture
         if not frame_data or not shirt_url:
             return jsonify({'error': 'Missing data'}), 400
 
@@ -83,26 +93,38 @@ def tryon():
 
         if shirt_resp is not None:
             shirt_resized = cv2.resize(shirt_resp, (x2 - x1, y2 - y1))
-            # Create overlay image with alpha
-            overlay = np.zeros((h, w, 4), dtype=np.uint8)
+            # Composite overlay onto frame
+            composited_img = img.copy()
             if shirt_resized.shape[2] == 4:
-                # Use alpha channel
-                alpha = shirt_resized[:, :, 3]
+                # Use alpha channel for blending
+                alpha = shirt_resized[:, :, 3] / 255.0
                 for c in range(0, 3):
-                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
-                overlay[y1:y2, x1:x2, 3] = alpha
+                    composited_img[y1:y2, x1:x2, c] = (
+                        alpha * shirt_resized[:, :, c] +
+                        (1 - alpha) * composited_img[y1:y2, x1:x2, c]
+                    )
             else:
-                # No alpha channel, assume opaque
-                for c in range(0, 3):
-                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
-                overlay[y1:y2, x1:x2, 3] = 255
+                # No alpha, direct overlay
+                composited_img[y1:y2, x1:x2] = shirt_resized[:, :, :3]
         else:
             print("Failed to load shirt image")
             return jsonify({'result': None})
 
-        _, buffer = cv2.imencode('.png', overlay)
-        result_b64 = base64.b64encode(buffer).decode('utf-8')
-        return jsonify({'result': result_b64})
+        if mode == "full":
+            # Upload composited image to Cloudinary
+            _, buffer = cv2.imencode('.png', cv2.cvtColor(composited_img, cv2.COLOR_BGR2RGB))
+            upload_result = cloudinary.uploader.upload(
+                BytesIO(buffer),
+                folder="tryon_results",
+                public_id=f"tryon_{int(requests.utils.urlparse(shirt_url).path.split('/')[-1].split('.')[0])}_{int(requests.utils.urlparse(frame_data[:50]).path.split('/')[-1].split('.')[0])}"
+            )
+            result_url = upload_result['secure_url']
+            return jsonify({'result': result_url})
+        else:
+            # Return overlay base64 for live try-on
+            _, buffer = cv2.imencode('.png', overlay)
+            result_b64 = base64.b64encode(buffer).decode('utf-8')
+            return jsonify({'result': result_b64})
 
     except Exception as e:
         print("Error:", e)

@@ -1,16 +1,10 @@
-# TODO: Connect Frontend to Railway Backend
+# TODO: Fix Top Suggestions on Homepage and Recently Tried
 
-## Completed Steps
+## Tasks
 
-- [x] Create .env file with VITE_API_URL=https://istylear-production.up.railway.app/
-- [x] Update axios calls in UserTryOn.jsx to use import.meta.env.VITE_API_URL + '/tryon'
-- [x] Update axios calls in TryFreePage.jsx to use import.meta.env.VITE_API_URL + '/tryon'
-- [x] Update test_api.py to use the new Railway URL
-- [x] Update public/\_redirects to proxy /api/\* to the backend
-- [x] Verify backend CORS (already includes Netlify domain)
-
-## Remaining Tasks
-
-- [ ] Test the API connections from the frontend
-- [ ] Deploy the updated frontend to Netlify
-- [ ] Verify live try-on works with the new backend URL
+- [x] Modify RecommendationContext.jsx to fetch trending items and select 4 random ones
+- [x] Add replaceItem function in RecommendationContext to replace added item with another random trending item, excluding already added items
+- [x] Update Dashboard.jsx to call replaceItem after adding to wardrobe with excluded items
+- [x] Update Recently Tried to show latest 4 clothes tried (clothImageUrl from tryHistory) - Changed to 4 items and use clothImageUrl as imageUrl, added clothName and clothImageUrl to tryHistoryEntry, set slidesPerViewDesktop to match number of items (max 4), filter out items without clothImageUrl and clothName, updated CreativeCarousel to use Math.min for slidesPerView and prevent centering, hide section when wardrobe is empty, filter out items not in wardrobe
+- [x] Remove video mirroring in try-on page
+- [ ] Test the random selection and replacement functionality

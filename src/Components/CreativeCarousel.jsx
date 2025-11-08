@@ -16,27 +16,20 @@ export default function CreativeCarousel({
 }) {
   const swiperRef = useRef(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [slidesPerView, setSlidesPerView] = useState(slidesPerViewDesktop);
 
   // Determine if button should be shown
   const hasButton = showTryAgain && onTryAgain;
 
-  // Responsive slides
-  useEffect(() => {
-    const handleResize = () => {
-      setSlidesPerView(
-        window.innerWidth < 640
-          ? 1
-          : window.innerWidth < 1024
-          ? 2
-          : slidesPerViewDesktop
-      );
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [slidesPerViewDesktop]);
+  // Calculate slides per view based on items length and responsive breakpoints
+  const getSlidesPerView = () => {
+    if (typeof window === "undefined") return slidesPerViewDesktop;
+    const width = window.innerWidth;
+    if (width < 640) return Math.min(items.length, 1);
+    if (width < 1024) return Math.min(items.length, 2);
+    return Math.min(items.length, slidesPerViewDesktop);
+  };
 
+  const slidesPerView = getSlidesPerView();
   const maxIndex = Math.ceil(items.length / slidesPerView) - 1;
 
   useEffect(() => {
@@ -53,6 +46,8 @@ export default function CreativeCarousel({
         spaceBetween={16}
         loop={false}
         allowTouchMove={true}
+        centeredSlides={false}
+        centeredSlidesBounds={false}
       >
         {items.map((item) => (
           <SwiperSlide key={item.id} className="h-auto">
@@ -91,7 +86,11 @@ export default function CreativeCarousel({
 
                 {hasButton && (
                   <button
-                    onClick={isItemAdded && isItemAdded(item) ? undefined : () => onTryAgain(item)}
+                    onClick={
+                      isItemAdded && isItemAdded(item)
+                        ? undefined
+                        : () => onTryAgain(item)
+                    }
                     className={`mt-auto w-full text-white py-2 rounded-md text-sm font-medium transition ${
                       isItemAdded && isItemAdded(item)
                         ? "bg-gray-400 cursor-not-allowed"

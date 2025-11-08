@@ -28,10 +28,18 @@ export default function Register() {
       await setDoc(doc(db, "users", user.uid), {
         name: form.name,
         email: form.email,
+        avatar: "/defaultpfp.png", // default avatar
+        wardrobe: [],
+        tryHistory: [],
+        totalTryCount: 0,
+        totalUploads: 0,
+        freeTryonsLeft: 15,
+        profileCompleted: false,
       });
 
       toast.success("Registration successful!");
-      navigate("/user"); // redirect to dashboard
+      localStorage.setItem("newUser", "true"); // mark as new user
+      navigate("/user/profile"); // redirect to profile setup
     } catch (error) {
       toast.error(error.message);
     }
