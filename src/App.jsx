@@ -61,17 +61,16 @@ export default function App() {
   console.log("App component rendering");
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <WardrobeProvider>
-          <RecommendationProvider>
-            <Router>
+      <Router>
+        <AuthProvider>
+          <WardrobeProvider>
+            <RecommendationProvider>
               <AppRoutes />
-              {/* Render Footer only for public pages */}
               <Footer />
-            </Router>
-          </RecommendationProvider>
-        </WardrobeProvider>
-      </AuthProvider>
+            </RecommendationProvider>
+          </WardrobeProvider>
+        </AuthProvider>
+      </Router>
     </ErrorBoundary>
   );
 }
