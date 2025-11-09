@@ -293,7 +293,7 @@ export default function UserTryOn() {
         {/* Try-On Display */}
         {/* Try-On Display */}
         <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden relative">
-          <div className="relative w-full aspect-video bg-black">
+          <div className="relative w-full aspect-square bg-black">
             {/* ✅ Live Video Feed */}
             <video
               ref={videoRef}
