@@ -1,21 +1,24 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "iStyleAR - Virtual Try-On",
+  "short_name": "iStyleAR",
+  "description": "Try-on clothes virtually and organize your wardrobe!",
   "icons": [
     {
-      "src": "/web-app-manifest-192x192.png",
-      "sizes": "192x192",
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any"
     },
     {
-      "src": "/web-app-manifest-512x512.png",
-      "sizes": "512x512",
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any"
     }
   ],
-  "theme_color": "#ffffff",
+  "theme_color": "#4f46e5",
   "background_color": "#ffffff",
-  "display": "standalone"
+  "display": "browser",
+  "start_url": "/",
+  "scope": "/"
 }
