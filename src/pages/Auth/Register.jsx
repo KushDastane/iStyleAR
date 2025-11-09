@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+} from "firebase/auth";
 import { auth, db } from "../../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
@@ -46,15 +49,17 @@ export default function Register() {
       });
       console.log("User document created successfully");
 
-      // 🕓 Small delay to allow Firestore to finish writing and auth state to propagate
-      console.log("Waiting for Firestore write to propagate...");
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
       toast.success("Registration successful!");
       localStorage.setItem("newUser", "true");
-      console.log("Redirecting to profile setup...");
-      // Wait for onAuthStateChanged to detect the user before navigating
-      navigate("/user/profile");
+
+      // Wait for Firebase auth to confirm the login before navigating
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        if (currentUser) {
+          console.log("Auth state updated, navigating to /user/profile...");
+          unsubscribe();
+          navigate("/user/profile");
+        }
+      });
     } catch (error) {
       toast.error(error.message);
     }

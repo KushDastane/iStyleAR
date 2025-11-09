@@ -80,6 +80,7 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
           if (err.name === "AbortError" || err.message?.includes("aborted")) {
             console.info("⚠️ Firestore request aborted — safe to ignore.");
+            return;
           } else {
             console.error("🔥 Error fetching user data:", err);
           }
