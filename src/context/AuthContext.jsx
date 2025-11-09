@@ -19,11 +19,18 @@ export const AuthProvider = ({ children }) => {
     }
 
     console.log("Setting up auth state listener...");
+    let currentController = null; // Track current abort controller
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log(
         "Auth state changed:",
         currentUser ? "User logged in" : "No user"
       );
+
+      // Abort any ongoing request
+      if (currentController) {
+        currentController.abort();
+      }
 
       if (currentUser) {
         // Prevent multiple simultaneous user data fetches
@@ -34,50 +41,51 @@ export const AuthProvider = ({ children }) => {
 
         setFetchingUserData(true);
 
-    try {
-      if (!db) {
-        console.error("Firebase db not initialized.");
-        setUser(currentUser);
-      } else {
-        console.log("Fetching user data from Firestore...");
-        const controller = new AbortController(); // controller to cancel old requests
-        const docRef = doc(db, "users", currentUser.uid);
+        try {
+          if (!db) {
+            console.error("Firebase db not initialized.");
+            setUser(currentUser);
+          } else {
+            console.log("Fetching user data from Firestore...");
+            currentController = new AbortController();
+            const docRef = doc(db, "users", currentUser.uid);
 
-        const docSnap = await getDoc(docRef, { signal: controller.signal });
+            const docSnap = await getDoc(docRef);
 
-        if (docSnap.exists()) {
-          const userData = docSnap.data();
-          console.log("User data found:", userData);
+            if (docSnap.exists()) {
+              const userData = docSnap.data();
+              console.log("User data found:", userData);
 
-          setUser({
-            ...currentUser,
-            ...userData,
-            avatar: userData.avatar || "/defaultpfp.png",
-            wardrobe: userData.wardrobe || [],
-            tryHistory: userData.tryHistory || [],
-            totalTryCount: userData.totalTryCount || 0,
-            totalUploads: userData.totalUploads || 0,
-            freeTryonsLeft: userData.freeTryonsLeft || 15,
-            profileCompleted: userData.profileCompleted || false,
-          });
-        } else {
-          console.log("No user data found in Firestore, using basic user");
-          setUser(currentUser);
+              setUser({
+                ...currentUser,
+                ...userData,
+                avatar: userData.avatar || "/defaultpfp.png",
+                wardrobe: userData.wardrobe || [],
+                tryHistory: userData.tryHistory || [],
+                totalTryCount: userData.totalTryCount || 0,
+                totalUploads: userData.totalUploads || 0,
+                freeTryonsLeft: userData.freeTryonsLeft || 15,
+                profileCompleted: userData.profileCompleted || false,
+              });
+            } else {
+              console.log("No user data found in Firestore, using basic user");
+              setUser(currentUser);
+            }
+          }
+        } catch (err) {
+          if (err.name === "AbortError" || err.message?.includes("aborted")) {
+            console.info("⚠️ Firestore request aborted — safe to ignore.");
+          } else {
+            console.error("🔥 Error fetching user data:", err);
+          }
+          // Only set user if we haven't been aborted
+          if (!currentController?.signal.aborted) {
+            setUser(currentUser);
+          }
+        } finally {
+          setFetchingUserData(false);
+          currentController = null;
         }
-
-        // Cleanup in case auth state changes mid-fetch
-        return () => controller.abort();
-      }
-    } catch (err) {
-      if (err.name === "AbortError" || err.message?.includes("aborted")) {
-        console.info("⚠️ Firestore request aborted — safe to ignore.");
-      } else {
-        console.error("🔥 Error fetching user data:", err);
-      }
-      setUser(currentUser);
-    } finally {
-      setFetchingUserData(false);
-    }
       } else {
         setUser(null);
       }
@@ -87,6 +95,9 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       console.log("Cleaning up auth state listener");
+      if (currentController) {
+        currentController.abort();
+      }
       unsubscribe();
     };
   }, []); // empty dependency array to run only once on mount
