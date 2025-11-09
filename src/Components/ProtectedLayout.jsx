@@ -44,6 +44,10 @@ export default function ProtectedLayout() {
   ];
 
   const handleLogout = async () => {
+    if (!auth) {
+      toast.error("Authentication service unavailable.");
+      return;
+    }
     try {
       await signOut(auth);
       toast.success("Logged out successfully!");

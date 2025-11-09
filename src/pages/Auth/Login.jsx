@@ -3,12 +3,20 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase/config";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { FaUserAlt, FaLock, FaArrowLeft, FaHome } from "react-icons/fa";
+import {
+  FaUserAlt,
+  FaLock,
+  FaArrowLeft,
+  FaHome,
+  FaEye,
+  FaEyeSlash,
+} from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -18,6 +26,12 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!auth) {
+      toast.error(
+        "Authentication service unavailable. Please check your connection."
+      );
+      return;
+    }
     try {
       await signInWithEmailAndPassword(auth, form.email, form.password);
       toast.success("Login successful!");
@@ -54,14 +68,21 @@ export default function Login() {
           <div className="relative">
             <FaLock className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
             <input
-              type="password"
+              type={showPassword ? "text" : "password"}
               name="password"
               placeholder="Password"
               value={form.password}
               onChange={handleChange}
-              className="w-full p-3 pl-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300"
+              className="w-full p-3 pl-10 pr-10 rounded-xl bg-white/30 text-white placeholder-white/70 focus:outline-none focus:ring-2 focus:ring-purple-300"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white"
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
           </div>
           <button
             type="submit"

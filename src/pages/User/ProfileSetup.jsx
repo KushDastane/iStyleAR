@@ -19,7 +19,6 @@ import {
   FaEdit,
   FaSave,
 } from "react-icons/fa";
-import EditEmailPassword from "../../Components/EditEmailPassword";
 
 const defaultAvatar = "/defaultpfp.png";
 
@@ -47,7 +46,6 @@ export default function ProfileSetup() {
   const [tempName, setTempName] = useState("");
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     fetchProfileData();
@@ -467,14 +465,6 @@ export default function ProfileSetup() {
 
             <div className="space-y-4">
               <button
-                onClick={() => setShowEditModal(true)}
-                className="w-full md:w-auto bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"
-              >
-                <FaEdit className="w-4 h-4" />
-                Edit Email / Password
-              </button>
-
-              <button
                 onClick={handleDeleteAccount}
                 className="w-full md:w-auto bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition flex items-center gap-2"
               >
@@ -498,9 +488,6 @@ export default function ProfileSetup() {
           onConfirm={confirmDelete}
           onCancel={() => setShowConfirm(false)}
         />
-      )}
-      {showEditModal && (
-        <EditEmailPassword onClose={() => setShowEditModal(false)} />
       )}
     </>
   );

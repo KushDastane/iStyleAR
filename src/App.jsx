@@ -19,6 +19,7 @@ import ProfileSetup from "./pages/User/ProfileSetup";
 // Layouts & Routes
 import PrivateRoute from "./Components/PrivateRoute";
 import ProtectedLayout from "./Components/ProtectedLayout";
+import ErrorBoundary from "./Components/ErrorBoundary";
 
 // Footer
 import Footer from "./Components/Footer";
@@ -58,16 +59,18 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <WardrobeProvider>
-        <RecommendationProvider>
-          <Router>
-            <AppRoutes />
-            {/* Render Footer only for public pages */}
-            <Footer />
-          </Router>
-        </RecommendationProvider>
-      </WardrobeProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <WardrobeProvider>
+          <RecommendationProvider>
+            <Router>
+              <AppRoutes />
+              {/* Render Footer only for public pages */}
+              <Footer />
+            </Router>
+          </RecommendationProvider>
+        </WardrobeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
