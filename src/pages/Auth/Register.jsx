@@ -32,21 +32,25 @@ export default function Register() {
       const user = userCredential.user;
 
       // Save extra info to Firestore
-      await setDoc(doc(db, "users", user.uid), {
-        name: form.name,
-        email: form.email,
-        avatar: "/defaultpfp.png", // default avatar
-        wardrobe: [],
-        tryHistory: [],
-        totalTryCount: 0,
-        totalUploads: 0,
-        freeTryonsLeft: 15,
-        profileCompleted: false,
-      });
+    await setDoc(doc(db, "users", user.uid), {
+      name: form.name,
+      email: form.email,
+      avatar: "/defaultpfp.png",
+      wardrobe: [],
+      tryHistory: [],
+      totalTryCount: 0,
+      totalUploads: 0,
+      freeTryonsLeft: 15,
+      profileCompleted: false,
+    });
 
-      toast.success("Registration successful!");
-      localStorage.setItem("newUser", "true"); // mark as new user
-      navigate("/user/profile"); // redirect to profile setup
+    // 🕓 Small delay to allow Firestore to finish writing
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    toast.success("Registration successful!");
+    localStorage.setItem("newUser", "true");
+    navigate("/user/profile");
+
     } catch (error) {
       toast.error(error.message);
     }
