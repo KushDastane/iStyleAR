@@ -19,18 +19,18 @@ export default function TryFreePage() {
   const demoClothes = [
     {
       id: 1,
-      name: "Red Shirt",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683904/red_zbtczb.png",
+      name: "Men's Suit",
+      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1762707319/wardrobe/4uXaATkQjpPuy71gWKh1LRC25hz1/wjcjyy0dpm04xsxpj9ls.png",
     },
     {
       id: 2,
-      name: "Blue Jacket",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683919/blue_kbphud.png",
+      name: "Female Dupatta",
+      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1762706947/wardrobe/4uXaATkQjpPuy71gWKh1LRC25hz1/u66buogxqfneg1flxysr.png",
     },
     {
       id: 3,
-      name: "Green Hoodie",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759683905/green_sfbxnt.png",
+      name: "Unisex Tshirt",
+      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1762696034/wardrobe/tE1OmRIo9BPuVVyoyWROLjeGeWM2/bko2pmrn2hn5nkrectkn.png",
     },
   ];
 
