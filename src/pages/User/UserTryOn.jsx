@@ -291,34 +291,48 @@ export default function UserTryOn() {
       {/* Main Section */}
       <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-6">
         {/* Try-On Display */}
+        {/* Try-On Display */}
         <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden relative">
-          <div className="relative w-full h-full">
-            {stream && (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ transform: "scaleX(-1)" }}
-              />
-            )}
-            {isLiveTryOn && (
-              <canvas
-                ref={canvasRef}
-                className="absolute inset-0 w-full h-full object-cover"
-              />
-            )}
+          <div className="relative w-full aspect-video bg-black">
+            {/* ✅ Live Video Feed */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{
+                transform: "scaleX(-1)",
+                backgroundColor: "black",
+                display: stream ? "block" : "none",
+              }}
+              onLoadedMetadata={() => {
+                videoRef.current?.play().catch(() => {});
+              }}
+            />
+
+            {/* ✅ Canvas overlay (no longer blocks video) */}
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              style={{
+                transform: "scaleX(-1)",
+                opacity: isLiveTryOn ? 1 : 0,
+                transition: "opacity 0.2s ease",
+              }}
+            />
+
+            {/* ✅ Fallbacks */}
             {!stream && !tryOnImage && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                <p className="text-gray-500">Your Try-On will appear here.</p>
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
+                Your Try-On will appear here.
               </div>
             )}
             {!stream && tryOnImage && (
               <img
                 src={tryOnImage}
                 alt="tryon"
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 max-w-full max-h-full object-contain"
+                className="absolute inset-0 w-full h-full object-contain"
               />
             )}
           </div>
