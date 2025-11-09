@@ -57,7 +57,7 @@ export default function Register() {
         if (currentUser) {
           console.log("Auth state updated, navigating to /user/profile...");
           unsubscribe();
-          navigate("/user/profile");
+          setTimeout(() => navigate("/user/profile"), 500); // slight delay ensures context readiness
         }
       });
     } catch (error) {

@@ -5,4 +5,7 @@
 - [x] Fix new user registration blank screen by removing forced page reload and using onAuthStateChanged listener
 - [x] Add detailed logging to AuthContext for debugging auth state issues
 - [x] Remove unnecessary timeouts and use proper auth state synchronization
+- [x] Add loading guard for fetchingUserData in AuthContext to prevent blank screens
+- [x] Update PrivateRoute to show loading when user is not ready
+- [x] Add 500ms delay in registration navigation for context readiness
 - [ ] Test login flow on mobile Chrome to ensure no blank screens

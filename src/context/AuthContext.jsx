@@ -120,10 +120,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Render a loader while initializing to prevent blank screen
-  if (loading) {
+  if (loading || fetchingUserData) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        Loading...
+      <div className="flex items-center justify-center h-screen text-white bg-black">
+        Initializing user session...
       </div>
     );
   }

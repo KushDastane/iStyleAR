@@ -4,9 +4,9 @@ import { useAuth } from "../context/useAuth";
 export default function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
 
-  if (loading)
+  if (loading || !user)
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center text-white bg-black">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C9E4C5]"></div>
       </div>
     ); // show loading instead of blank
