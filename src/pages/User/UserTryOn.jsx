@@ -166,7 +166,7 @@ export default function UserTryOn() {
     }
   };
 
-  // 🧠 Process frame with backend
+  // 🧠 Process frame with backend - optimized for network by downscaling canvas
   const processFrame = async () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -190,7 +190,22 @@ export default function UserTryOn() {
     if (!isProcessingRef.current && selectedDress?.imageUrl) {
       isProcessingRef.current = true;
       try {
-        const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
+        // Downscale canvas for network optimization - reduce to 50% size
+        const downscaledCanvas = document.createElement("canvas");
+        const downscaledCtx = downscaledCanvas.getContext("2d");
+        downscaledCanvas.width = canvas.width * 0.5;
+        downscaledCanvas.height = canvas.height * 0.5;
+        downscaledCtx.drawImage(
+          canvas,
+          0,
+          0,
+          downscaledCanvas.width,
+          downscaledCanvas.height
+        );
+
+        const frameData = downscaledCanvas
+          .toDataURL("image/jpeg", 0.8)
+          .split(",")[1]; // 0.8 quality for further compression
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/tryon`,
           {
@@ -243,14 +258,29 @@ export default function UserTryOn() {
     }
   };
 
-  // 📸 Capture frame
+  // 📸 Capture frame - optimized for network by downscaling canvas
   const handleCaptureTryOn = async () => {
     if (!selectedDress) return toast.error("Select a dress first!");
     if (!canvasRef.current) return toast.error("No canvas available");
     setUploading(true);
     try {
       const canvas = canvasRef.current;
-      const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
+      // Downscale canvas for network optimization - reduce to 75% size for capture
+      const downscaledCanvas = document.createElement("canvas");
+      const downscaledCtx = downscaledCanvas.getContext("2d");
+      downscaledCanvas.width = canvas.width * 0.75;
+      downscaledCanvas.height = canvas.height * 0.75;
+      downscaledCtx.drawImage(
+        canvas,
+        0,
+        0,
+        downscaledCanvas.width,
+        downscaledCanvas.height
+      );
+
+      const frameData = downscaledCanvas
+        .toDataURL("image/jpeg", 0.9)
+        .split(",")[1]; // 0.9 quality for better capture quality
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/tryon`,
         {

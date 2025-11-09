@@ -116,7 +116,22 @@ export default function TryFreePage() {
     }
 
     try {
-      const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
+      // Downscale canvas for network optimization - reduce to 50% size
+      const downscaledCanvas = document.createElement("canvas");
+      const downscaledCtx = downscaledCanvas.getContext("2d");
+      downscaledCanvas.width = canvas.width * 0.5;
+      downscaledCanvas.height = canvas.height * 0.5;
+      downscaledCtx.drawImage(
+        canvas,
+        0,
+        0,
+        downscaledCanvas.width,
+        downscaledCanvas.height
+      );
+
+      const frameData = downscaledCanvas
+        .toDataURL("image/jpeg", 0.8)
+        .split(",")[1]; // 0.8 quality for compression
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/tryon`,
         {

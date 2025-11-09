@@ -1,5 +1,4 @@
 import os
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import cv2
@@ -9,30 +8,33 @@ import base64
 from io import BytesIO
 import requests
 from PIL import Image
-import cloudinary
-import cloudinary.uploader
 
+# ----------------------
+# Initialize Flask app
+# ----------------------
 app = Flask(__name__)
-if os.getenv("FLASK_ENV") == "development":
-    # Dev: allow all origins
-    CORS(app)
-else:
-    # Prod: allow only Netlify frontend
-    CORS(app, origins=["https://istylear.netlify.app"])
 
-# Cloudinary config
-cloudinary.config(
-    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-    api_key=os.getenv('CLOUDINARY_API_KEY'),
-    api_secret=os.getenv('CLOUDINARY_API_SECRET')
-)
+# CORS setup
+CORS(app, resources={r"/*": {"origins": ["https://istylear.netlify.app", "http://localhost:5173"]}}, supports_credentials=True)
 
+# ----------------------
+# Routes
+# ----------------------
 @app.route("/")
 def home():
     return jsonify({"message": "Try-On Backend is live 🚀"})
 
+# ----------------------
+# Mediapipe Pose Setup
+# ----------------------
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(static_image_mode=False, model_complexity=1, enable_segmentation=False, min_detection_confidence=0.7, min_tracking_confidence=0.7)
+pose = mp_pose.Pose(
+    static_image_mode=False,
+    model_complexity=1,
+    enable_segmentation=False,
+    min_detection_confidence=0.7,
+    min_tracking_confidence=0.7
+)
 
 previous_points = None
 
@@ -49,22 +51,23 @@ def smooth_points(points, alpha=0.6):
     previous_points = smoothed
     return smoothed
 
+# ----------------------
+# Try-On Route
+# ----------------------
 @app.route('/tryon', methods=['POST'])
 def tryon():
-    import time
     print("Starting tryon request")
     try:
         data = request.get_json()
         frame_data = data.get('frame')
         shirt_url = data.get('shirtUrl')
-        mode = data.get('mode', 'overlay')  # 'overlay' or 'full'
-
+        
         if not frame_data or not shirt_url:
             return jsonify({'error': 'Missing data'}), 400
 
         # Decode frame
         img_bytes = base64.b64decode(frame_data)
-        img = Image.open(BytesIO(img_bytes)).convert("RGB")
+        img = Image.open(BytesIO(img_bytes))
         img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         h, w, _ = img.shape
 
@@ -74,25 +77,16 @@ def tryon():
             return jsonify({'result': None})
 
         lm = results.pose_landmarks.landmark
+        left_shoulder = (int(lm[mp_pose.PoseLandmark.LEFT_SHOULDER].x * w),
+                         int(lm[mp_pose.PoseLandmark.LEFT_SHOULDER].y * h))
+        right_shoulder = (int(lm[mp_pose.PoseLandmark.RIGHT_SHOULDER].x * w),
+                          int(lm[mp_pose.PoseLandmark.RIGHT_SHOULDER].y * h))
+        left_hip = (int(lm[mp_pose.PoseLandmark.LEFT_HIP].x * w),
+                    int(lm[mp_pose.PoseLandmark.LEFT_HIP].y * h))
 
-        # Check if required landmarks exist
-        required_landmarks = [
-            mp_pose.PoseLandmark.LEFT_SHOULDER,
-            mp_pose.PoseLandmark.RIGHT_SHOULDER,
-            mp_pose.PoseLandmark.LEFT_HIP
-        ]
-        points = []
-        for lm_idx in required_landmarks:
-            if lm[lm_idx].visibility < 0.5:
-                return jsonify({'result': None})  # Low confidence
-            points.append((
-                int(lm[lm_idx].x * w),
-                int(lm[lm_idx].y * h)
-            ))
+        left_shoulder, right_shoulder, left_hip = smooth_points([left_shoulder, right_shoulder, left_hip])
 
-        left_shoulder, right_shoulder, left_hip = smooth_points(points)
-
-        # Calculate shirt position & size
+        # Calculate shirt position
         shirt_width = int(abs(right_shoulder[0] - left_shoulder[0]) * 1.5)
         shirt_height = int(abs(left_hip[1] - left_shoulder[1]) * 1.6)
         x_center = int((left_shoulder[0] + right_shoulder[0]) / 2)
@@ -102,53 +96,43 @@ def tryon():
         x2 = min(w, x1 + shirt_width)
         y2 = min(h, y1 + shirt_height)
 
-        # Load shirt image
+        # Load shirt image from URL
         shirt_resp = cv2.imdecode(
-            np.frombuffer(requests.get(shirt_url, timeout=5).content, np.uint8),
+            np.frombuffer(requests.get(shirt_url).content, np.uint8),
             cv2.IMREAD_UNCHANGED
         )
 
-        if shirt_resp is None:
+        if shirt_resp is not None:
+            shirt_resized = cv2.resize(shirt_resp, (x2 - x1, y2 - y1))
+            overlay = np.zeros((h, w, 4), dtype=np.uint8)
+
+            if shirt_resized.shape[2] == 4:
+                # Use alpha channel
+                alpha = shirt_resized[:, :, 3]
+                for c in range(0, 3):
+                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
+                overlay[y1:y2, x1:x2, 3] = alpha
+            else:
+                # No alpha channel
+                for c in range(0, 3):
+                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
+                overlay[y1:y2, x1:x2, 3] = 255
+        else:
             print("Failed to load shirt image")
             return jsonify({'result': None})
 
-        shirt_resized = cv2.resize(shirt_resp, (x2 - x1, y2 - y1))
-
-        # Composite overlay onto frame
-        composited_img = img.copy()
-        if shirt_resized.shape[2] == 4:  # has alpha
-            alpha = shirt_resized[:, :, 3] / 255.0
-            for c in range(3):
-                composited_img[y1:y2, x1:x2, c] = (
-                    alpha * shirt_resized[:, :, c] +
-                    (1 - alpha) * composited_img[y1:y2, x1:x2, c]
-                )
-        else:
-            composited_img[y1:y2, x1:x2] = shirt_resized[:, :, :3]
-
-        if mode == "full":
-            # Upload composited image to Cloudinary
-            _, buffer = cv2.imencode('.png', cv2.cvtColor(composited_img, cv2.COLOR_BGR2RGB))
-            buffer_bytes = buffer.tobytes()
-            public_id = f"tryon_{int(time.time())}"
-
-            upload_result = cloudinary.uploader.upload(
-                BytesIO(buffer_bytes),
-                folder="tryon_results",
-                public_id=public_id
-            )
-            return jsonify({'result': upload_result['secure_url']})
-        else:
-            # Return overlay base64 for live try-on
-            _, buffer = cv2.imencode('.png', cv2.cvtColor(composited_img, cv2.COLOR_BGR2RGB))
-            result_b64 = base64.b64encode(buffer).decode('utf-8')
-            return jsonify({'result': result_b64})
+        _, buffer = cv2.imencode('.png', overlay)
+        result_b64 = base64.b64encode(buffer).decode('utf-8')
+        return jsonify({'result': result_b64})
 
     except Exception as e:
-        print("Error in /tryon:", e)
+        print("Error:", e)
         return jsonify({'error': str(e)}), 500
 
-if __name__ == '__main__':
+# ----------------------
+# Run the app
+# ----------------------
+if __name__ == "__main__":
     print("✅ Try-On backend running...")
-    port = int(os.environ.get("PORT", 5000))  # Railway gives random PORT
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
