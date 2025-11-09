@@ -1,8 +1,5 @@
 import { useState } from "react";
-import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-} from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
@@ -52,15 +49,12 @@ export default function Register() {
       toast.success("Registration successful!");
       localStorage.setItem("newUser", "true");
 
-      // Wait for Firebase auth to confirm the login before navigating
-      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        if (currentUser) {
-          console.log("Auth state updated, navigating to /user/profile...");
-          unsubscribe();
-          setTimeout(() => navigate("/user/profile"), 500); // slight delay ensures context readiness
-        }
-      });
+      // ✅ Navigate after a short delay so AuthContext syncs
+      setTimeout(() => {
+        navigate("/user/profile");
+      }, 700);
     } catch (error) {
+      console.error("Registration error:", error);
       toast.error(error.message);
     }
   };
