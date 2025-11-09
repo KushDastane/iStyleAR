@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   console.log("AuthProvider initializing");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fetchingUserData, setFetchingUserData] = useState(false); // Prevent multiple simultaneous fetches
 
   useEffect(() => {
     if (!auth) {
@@ -25,6 +26,14 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (currentUser) {
+        // Prevent multiple simultaneous user data fetches
+        if (fetchingUserData) {
+          console.log("User data fetch already in progress, skipping...");
+          return;
+        }
+
+        setFetchingUserData(true);
+
         try {
           if (!db) {
             console.error("Firebase db not initialized.");
@@ -54,8 +63,16 @@ export const AuthProvider = ({ children }) => {
             }
           }
         } catch (err) {
-          console.error("Error fetching user data:", err);
+          // Handle AbortError gracefully - don't log as error, just skip
+          if (err.name === "AbortError" || err.message?.includes("aborted")) {
+            console.log("Firestore request aborted, skipping user data fetch");
+          } else {
+            console.error("Error fetching user data:", err);
+          }
+          // Still set basic user data even on error
           setUser(currentUser);
+        } finally {
+          setFetchingUserData(false);
         }
       } else {
         setUser(null);

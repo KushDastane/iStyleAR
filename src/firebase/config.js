@@ -36,18 +36,7 @@ try {
   storage = null;
 }
 
-// Force refresh Firebase auth state on page load to avoid cached issues
-if (auth) {
-  // Clear any persisted auth state
-  auth.signOut().catch(() => {});
-  // Clear local storage related to Firebase
-  if (typeof window !== "undefined") {
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("firebase:")) {
-        localStorage.removeItem(key);
-      }
-    });
-  }
-}
+// Removed forced signOut to prevent auth state resets on page load
+// This was causing repeated AbortErrors and blank screens on mobile
 
 export { auth, db, storage };
