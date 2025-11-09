@@ -33,7 +33,7 @@ const presetAvatars = [
 ];
 
 export default function ProfileSetup() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState({
     name: "",
@@ -88,6 +88,10 @@ export default function ProfileSetup() {
         stylePreferences: profileData.stylePreferences,
         profileCompleted: true,
       });
+
+      // Refresh user data in context to update navbar
+      await refreshUser();
+
       localStorage.removeItem("newUser"); // remove new user flag
       toast.success("Profile updated successfully!");
       // Redirect to dashboard after profile completion
