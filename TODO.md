@@ -2,4 +2,5 @@
 - [x] Add AbortError handling in AuthContext.jsx for graceful Firestore request abortion
 - [x] Add safeguard to prevent multiple simultaneous user data fetches in AuthContext
 - [x] Enhance cache clearing in main.jsx for better mobile compatibility
+- [x] Fix new user registration blank screen by forcing page reload after Firestore write
 - [ ] Test login flow on mobile Chrome to ensure no blank screens

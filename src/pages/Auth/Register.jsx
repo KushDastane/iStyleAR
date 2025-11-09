@@ -3,7 +3,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   FaUserAlt,
   FaEnvelope,
@@ -15,7 +15,6 @@ import {
 export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -32,25 +31,25 @@ export default function Register() {
       const user = userCredential.user;
 
       // Save extra info to Firestore
-    await setDoc(doc(db, "users", user.uid), {
-      name: form.name,
-      email: form.email,
-      avatar: "/defaultpfp.png",
-      wardrobe: [],
-      tryHistory: [],
-      totalTryCount: 0,
-      totalUploads: 0,
-      freeTryonsLeft: 15,
-      profileCompleted: false,
-    });
+      await setDoc(doc(db, "users", user.uid), {
+        name: form.name,
+        email: form.email,
+        avatar: "/defaultpfp.png",
+        wardrobe: [],
+        tryHistory: [],
+        totalTryCount: 0,
+        totalUploads: 0,
+        freeTryonsLeft: 15,
+        profileCompleted: false,
+      });
 
-    // 🕓 Small delay to allow Firestore to finish writing
-    await new Promise((resolve) => setTimeout(resolve, 500));
+      // 🕓 Small delay to allow Firestore to finish writing and auth state to propagate
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    toast.success("Registration successful!");
-    localStorage.setItem("newUser", "true");
-    navigate("/user/profile");
-
+      toast.success("Registration successful!");
+      localStorage.setItem("newUser", "true");
+      // Force a page reload to ensure auth state is properly initialized
+      window.location.href = "/user/profile";
     } catch (error) {
       toast.error(error.message);
     }
