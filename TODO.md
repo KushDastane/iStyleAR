@@ -1,13 +1,11 @@
-- [x] Remove forced signOut from firebase/config.js to prevent auth state resets on page load
-- [x] Add AbortError handling in AuthContext.jsx for graceful Firestore request abortion
-- [x] Add safeguard to prevent multiple simultaneous user data fetches in AuthContext
-- [x] Enhance cache clearing in main.jsx for better mobile compatibility
-- [x] Fix new user registration blank screen by removing forced page reload and using onAuthStateChanged listener
-- [x] Add detailed logging to AuthContext for debugging auth state issues
-- [x] Remove unnecessary timeouts and use proper auth state synchronization
-- [x] Add loading guard for fetchingUserData in AuthContext to prevent blank screens
-- [x] Update PrivateRoute to show loading when user is not ready
-- [x] Add 500ms delay in registration navigation for context readiness
-- [x] Reduce excessive console logging in AuthContext to prevent spam
-- [x] Simplify AuthContext to use single loading state and isMounted flag instead of AbortController
-- [ ] Test login flow on mobile Chrome to ensure no blank screens
+# TODO: Fix UserTryOn Mobile Compatibility
+
+## Tasks
+- [ ] Update getUserMedia call in UserTryOn.jsx to use `video: true` instead of `video: { facingMode: "user" }`
+- [ ] Remove `transform: "scaleX(-1)"` from video and canvas elements in UserTryOn.jsx
+- [ ] Test the changes on mobile device to verify functionality
+
+## Status
+- [x] Plan approved by user
+- [ ] Changes implemented
+- [ ] Tested on mobile

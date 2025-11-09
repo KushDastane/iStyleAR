@@ -144,27 +144,25 @@ export default function UserTryOn() {
   }, [stream]);
 
   // 🎥 Start webcam
-  const startWebcam = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-      });
-      setStream(mediaStream);
-      await new Promise((resolve) => {
-        const checkRef = setInterval(() => {
-          if (videoRef.current) {
-            clearInterval(checkRef);
-            resolve();
-          }
-        }, 100);
-      });
-      videoRef.current.srcObject = mediaStream;
-      await videoRef.current.play();
-    } catch (err) {
-      console.error("Webcam error:", err);
-      alert("Please allow camera access.");
-    }
-  };
+ const startWebcam = async () => {
+   try {
+     const mediaStream = await navigator.mediaDevices.getUserMedia({
+       video: { facingMode: "user" }, // ensures front camera on mobile
+     });
+     setStream(mediaStream);
+     if (videoRef.current) {
+       videoRef.current.srcObject = mediaStream;
+       // don't await this; directly play inside gesture
+       videoRef.current.play().catch((err) => {
+         console.warn("Autoplay blocked:", err);
+       });
+     }
+   } catch (err) {
+     console.error("Webcam error:", err);
+     alert("Please allow camera access.");
+   }
+ };
+
 
   // 🧠 Process frame with backend - optimized for network by downscaling canvas
   const processFrame = async () => {
@@ -505,7 +503,6 @@ export default function UserTryOn() {
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ transform: "scaleX(-1)" }}
             />
             {!stream && !tryOnImage && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
