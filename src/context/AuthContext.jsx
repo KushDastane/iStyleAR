@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log(
         "Auth state changed:",
-        currentUser ? "User logged in" : "No user"
+        currentUser ? `User logged in: ${currentUser.uid}` : "No user"
       );
 
       // Abort any ongoing request
@@ -46,7 +46,9 @@ export const AuthProvider = ({ children }) => {
             console.error("Firebase db not initialized.");
             setUser(currentUser);
           } else {
-            console.log("Fetching user data from Firestore...");
+            console.log(
+              `Fetching user data from Firestore for UID: ${currentUser.uid}...`
+            );
             currentController = new AbortController();
             const docRef = doc(db, "users", currentUser.uid);
 
@@ -56,7 +58,7 @@ export const AuthProvider = ({ children }) => {
               const userData = docSnap.data();
               console.log("User data found:", userData);
 
-              setUser({
+              const mergedUser = {
                 ...currentUser,
                 ...userData,
                 avatar: userData.avatar || "/defaultpfp.png",
@@ -66,7 +68,10 @@ export const AuthProvider = ({ children }) => {
                 totalUploads: userData.totalUploads || 0,
                 freeTryonsLeft: userData.freeTryonsLeft || 15,
                 profileCompleted: userData.profileCompleted || false,
-              });
+              };
+
+              console.log("Setting merged user:", mergedUser);
+              setUser(mergedUser);
             } else {
               console.log("No user data found in Firestore, using basic user");
               setUser(currentUser);
@@ -87,9 +92,11 @@ export const AuthProvider = ({ children }) => {
           currentController = null;
         }
       } else {
+        console.log("No current user, setting user to null");
         setUser(null);
       }
 
+      console.log("Setting loading to false");
       setLoading(false);
     });
 

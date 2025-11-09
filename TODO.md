@@ -3,4 +3,6 @@
 - [x] Add safeguard to prevent multiple simultaneous user data fetches in AuthContext
 - [x] Enhance cache clearing in main.jsx for better mobile compatibility
 - [x] Fix new user registration blank screen by forcing page reload after Firestore write
+- [x] Add detailed logging to AuthContext for debugging auth state issues
+- [x] Increase Firestore write delay to 2 seconds for better propagation
 - [ ] Test login flow on mobile Chrome to ensure no blank screens

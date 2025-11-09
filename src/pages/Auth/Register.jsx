@@ -31,6 +31,7 @@ export default function Register() {
       const user = userCredential.user;
 
       // Save extra info to Firestore
+      console.log("Creating user document in Firestore...");
       await setDoc(doc(db, "users", user.uid), {
         name: form.name,
         email: form.email,
@@ -42,12 +43,15 @@ export default function Register() {
         freeTryonsLeft: 15,
         profileCompleted: false,
       });
+      console.log("User document created successfully");
 
       // 🕓 Small delay to allow Firestore to finish writing and auth state to propagate
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      console.log("Waiting for Firestore write to propagate...");
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       toast.success("Registration successful!");
       localStorage.setItem("newUser", "true");
+      console.log("Redirecting to profile setup...");
       // Force a page reload to ensure auth state is properly initialized
       window.location.href = "/user/profile";
     } catch (error) {
