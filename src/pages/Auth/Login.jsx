@@ -41,7 +41,9 @@ export default function Login() {
   };
 
   useEffect(() => {
+    console.log("Login page - user state:", user);
     if (user) {
+      console.log("User detected, navigating to /user");
       navigate("/user");
     }
   }, [user, navigate]);

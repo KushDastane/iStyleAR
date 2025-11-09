@@ -18,17 +18,24 @@ export const AuthProvider = ({ children }) => {
       return;
     }
 
+    console.log("Setting up auth state listener...");
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log(
+        "Auth state changed:",
+        currentUser ? "User logged in" : "No user"
+      );
       if (currentUser) {
         try {
           if (!db) {
             console.error("Firebase db not initialized.");
             setUser(currentUser);
           } else {
+            console.log("Fetching user data from Firestore...");
             const docRef = doc(db, "users", currentUser.uid);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
               const userData = docSnap.data();
+              console.log("User data found:", userData);
               setUser({
                 ...currentUser,
                 ...userData,
@@ -40,17 +47,25 @@ export const AuthProvider = ({ children }) => {
                 freeTryonsLeft: userData.freeTryonsLeft || 15,
                 profileCompleted: userData.profileCompleted || false,
               });
-            } else setUser(currentUser);
+            } else {
+              console.log("No user data found in Firestore, using basic user");
+              setUser(currentUser);
+            }
           }
         } catch (err) {
-          console.error(err);
+          console.error("Error fetching user data:", err);
           setUser(currentUser);
         }
-      } else setUser(null);
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log("Cleaning up auth state listener");
+      unsubscribe();
+    };
   }, [auth, db]); // Add dependencies to force re-run if auth or db change
 
   const logout = async () => {

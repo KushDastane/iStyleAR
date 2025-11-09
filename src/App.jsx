@@ -25,6 +25,7 @@ import ErrorBoundary from "./Components/ErrorBoundary";
 import Footer from "./Components/Footer";
 
 function AppRoutes() {
+  console.log("AppRoutes rendering");
   return (
     <Routes>
       {/* ---------- PUBLIC ROUTES ---------- */}

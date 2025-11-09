@@ -38,7 +38,16 @@ try {
 
 // Force refresh Firebase auth state on page load to avoid cached issues
 if (auth) {
-  auth.signOut().catch(() => {}); // Sign out to clear any cached state
+  // Clear any persisted auth state
+  auth.signOut().catch(() => {});
+  // Clear local storage related to Firebase
+  if (typeof window !== "undefined") {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("firebase:")) {
+        localStorage.removeItem(key);
+      }
+    });
+  }
 }
 
 export { auth, db, storage };
