@@ -11,6 +11,7 @@ import pushpakImg from "../../assets/team/pushpak.png";
 import sudhanshuImg from "../../assets/team/sudhanshu.png";
 
 export default function HomePage() {
+  console.log("HomePage component rendering");
   const [aboutRef, aboutInView] = useInView({
     triggerOnce: true,
     threshold: 0.2,

@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  console.log("AuthProvider initializing");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 

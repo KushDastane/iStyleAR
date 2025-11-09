@@ -57,6 +57,7 @@ function AppRoutes() {
 }
 
 export default function App() {
+  console.log("App component rendering");
   return (
     <ErrorBoundary>
       <AuthProvider>
