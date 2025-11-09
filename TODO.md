@@ -8,4 +8,6 @@
 - [x] Add loading guard for fetchingUserData in AuthContext to prevent blank screens
 - [x] Update PrivateRoute to show loading when user is not ready
 - [x] Add 500ms delay in registration navigation for context readiness
+- [x] Reduce excessive console logging in AuthContext to prevent spam
+- [x] Simplify AuthContext to use single loading state and isMounted flag instead of AbortController
 - [ ] Test login flow on mobile Chrome to ensure no blank screens

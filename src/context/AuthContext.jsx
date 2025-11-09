@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState, useContext } from "react";
+import { createContext, useEffect, useState, useContext, useRef } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, db } from "../firebase/config";
 import { doc, getDoc } from "firebase/firestore";
@@ -6,10 +6,10 @@ import { doc, getDoc } from "firebase/firestore";
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  console.log("AuthProvider initializing");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [fetchingUserData, setFetchingUserData] = useState(false); // Prevent multiple simultaneous fetches
+  const currentUserRef = useRef(null); // Track current user being processed
+  const isMountedRef = useRef(true); // Use ref for isMounted to avoid stale closures
 
   useEffect(() => {
     if (!auth) {
@@ -19,7 +19,6 @@ export const AuthProvider = ({ children }) => {
     }
 
     console.log("Setting up auth state listener...");
-    let currentController = null; // Track current abort controller
 
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log(
@@ -27,32 +26,28 @@ export const AuthProvider = ({ children }) => {
         currentUser ? `User logged in: ${currentUser.uid}` : "No user"
       );
 
-      // Abort any ongoing request
-      if (currentController) {
-        currentController.abort();
-      }
+      // Update current user ref to track which user we're processing
+      currentUserRef.current = currentUser;
 
       if (currentUser) {
-        // Prevent multiple simultaneous user data fetches
-        if (fetchingUserData) {
-          console.log("User data fetch already in progress, skipping...");
-          return;
-        }
-
-        setFetchingUserData(true);
-
         try {
           if (!db) {
             console.error("Firebase db not initialized.");
-            setUser(currentUser);
+            if (isMountedRef.current && currentUserRef.current === currentUser) {
+              setUser(currentUser);
+            }
           } else {
             console.log(
               `Fetching user data from Firestore for UID: ${currentUser.uid}...`
             );
-            currentController = new AbortController();
             const docRef = doc(db, "users", currentUser.uid);
-
             const docSnap = await getDoc(docRef);
+
+            // Check if component is still mounted and this is still the current user
+            if (!isMountedRef.current || currentUserRef.current !== currentUser) {
+              console.log("Component unmounted or user changed, skipping setUser");
+              return;
+            }
 
             if (docSnap.exists()) {
               const userData = docSnap.data();
@@ -78,49 +73,55 @@ export const AuthProvider = ({ children }) => {
             }
           }
         } catch (err) {
-          if (err.name === "AbortError" || err.message?.includes("aborted")) {
-            console.info("⚠️ Firestore request aborted — safe to ignore.");
-            return;
-          } else {
-            console.error("🔥 Error fetching user data:", err);
-          }
-          // Only set user if we haven't been aborted
-          if (!currentController?.signal.aborted) {
+          console.error("🔥 Error fetching user data:", err);
+          // Check if component is still mounted and this is still the current user
+          if (isMountedRef.current && currentUserRef.current === currentUser) {
+            // Fallback to basic user data on error
             setUser(currentUser);
           }
-        } finally {
-          setFetchingUserData(false);
-          currentController = null;
         }
       } else {
         console.log("No current user, setting user to null");
-        setUser(null);
+        // Only set to null if component is mounted
+        if (isMountedRef.current) {
+          setUser(null);
+        }
       }
 
       console.log("Setting loading to false");
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     });
 
     return () => {
       console.log("Cleaning up auth state listener");
-      if (currentController) {
-        currentController.abort();
-      }
+      isMountedRef.current = false;
       unsubscribe();
     };
   }, []); // empty dependency array to run only once on mount
 
   const logout = async () => {
-    if (auth) {
-      await signOut(auth);
-      setUser(null); // ensure state is cleared
-    } else {
-      console.error("Cannot logout: Firebase auth not initialized.");
+    try {
+      if (auth) {
+        await signOut(auth);
+        // Clear user state - onAuthStateChanged will handle setting user to null
+        // Don't manually setUser(null) here to avoid double re-render
+        // Clear any localStorage items if needed
+        localStorage.removeItem("newUser");
+        console.log("User logged out successfully");
+      } else {
+        console.error("Cannot logout: Firebase auth not initialized.");
+      }
+    } catch (error) {
+      console.error("Error during logout:", error);
+      // Still clear local state even if Firebase logout fails
+      localStorage.removeItem("newUser");
     }
   };
 
   // Render a loader while initializing to prevent blank screen
-  if (loading || fetchingUserData) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-white bg-black">
         Initializing user session...
