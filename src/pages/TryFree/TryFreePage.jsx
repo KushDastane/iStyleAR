@@ -132,13 +132,10 @@ export default function TryFreePage() {
       const frameData = downscaledCanvas
         .toDataURL("image/jpeg", 0.8)
         .split(",")[1]; // 0.8 quality for compression
-      const response = await axios.post(
-        `${import.meta.env.VITE_API_URL}/tryon`,
-        {
-          frame: frameData,
-          shirtUrl: selectedDress.img,
-        }
-      );
+      const response = await axios.post(`/api/tryon`, {
+        frame: frameData,
+        shirtUrl: selectedDress.img,
+      });
 
       if (response.data.result) {
         const resultImg = new Image();
