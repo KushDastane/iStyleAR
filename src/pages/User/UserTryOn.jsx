@@ -206,10 +206,13 @@ export default function UserTryOn() {
         const frameData = downscaledCanvas
           .toDataURL("image/jpeg", 0.8)
           .split(",")[1]; // 0.8 quality for further compression
-        const response = await axios.post(`/api/tryon`, {
-          frame: frameData,
-          shirtUrl: selectedDress.imageUrl,
-        });
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/tryon`,
+          {
+            frame: frameData,
+            shirtUrl: selectedDress.imageUrl,
+          }
+        );
         if (response.data?.result) {
           const img = new Image();
           img.onload = () => (lastOverlayRef.current = img);
@@ -278,11 +281,14 @@ export default function UserTryOn() {
       const frameData = downscaledCanvas
         .toDataURL("image/jpeg", 0.9)
         .split(",")[1]; // 0.9 quality for better capture quality
-      const response = await axios.post(`/api/tryon`, {
-        frame: frameData,
-        shirtUrl: selectedDress.imageUrl,
-        mode: "full",
-      });
+      const response = await axios.post(
+        `${import.meta.env.VITE_API_URL}/tryon`,
+        {
+          frame: frameData,
+          shirtUrl: selectedDress.imageUrl,
+          mode: "full",
+        }
+      );
       if (response.data.result) {
         setTryOnImage(`data:image/jpeg;base64,${response.data.result}`);
         stopLiveTryOn();
