@@ -144,25 +144,21 @@ export default function UserTryOn() {
   }, [stream]);
 
   // 🎥 Start webcam
- const startWebcam = async () => {
-   try {
-     const mediaStream = await navigator.mediaDevices.getUserMedia({
-       video: { facingMode: "user" }, // ensures front camera on mobile
-     });
-     setStream(mediaStream);
-     if (videoRef.current) {
-       videoRef.current.srcObject = mediaStream;
-       // don't await this; directly play inside gesture
-       videoRef.current.play().catch((err) => {
-         console.warn("Autoplay blocked:", err);
-       });
-     }
-   } catch (err) {
-     console.error("Webcam error:", err);
-     alert("Please allow camera access.");
-   }
- };
-
+  const startWebcam = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        await videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Error accessing webcam:", err);
+      alert("Unable to access webcam. Please allow camera permissions.");
+    }
+  };
 
   // 🧠 Process frame with backend - optimized for network by downscaling canvas
   const processFrame = async () => {
