@@ -34,46 +34,50 @@ export const AuthProvider = ({ children }) => {
 
         setFetchingUserData(true);
 
-        try {
-          if (!db) {
-            console.error("Firebase db not initialized.");
-            setUser(currentUser);
-          } else {
-            console.log("Fetching user data from Firestore...");
-            const docRef = doc(db, "users", currentUser.uid);
-            const docSnap = await getDoc(docRef);
+    try {
+      if (!db) {
+        console.error("Firebase db not initialized.");
+        setUser(currentUser);
+      } else {
+        console.log("Fetching user data from Firestore...");
+        const controller = new AbortController(); // controller to cancel old requests
+        const docRef = doc(db, "users", currentUser.uid);
 
-            if (docSnap.exists()) {
-              const userData = docSnap.data();
-              console.log("User data found:", userData);
-              setUser({
-                ...currentUser,
-                ...userData,
-                avatar: userData.avatar || "/defaultpfp.png",
-                wardrobe: userData.wardrobe || [],
-                tryHistory: userData.tryHistory || [],
-                totalTryCount: userData.totalTryCount || 0,
-                totalUploads: userData.totalUploads || 0,
-                freeTryonsLeft: userData.freeTryonsLeft || 15,
-                profileCompleted: userData.profileCompleted || false,
-              });
-            } else {
-              console.log("No user data found in Firestore, using basic user");
-              setUser(currentUser);
-            }
-          }
-        } catch (err) {
-          // Handle AbortError gracefully - don't log as error, just skip
-          if (err.name === "AbortError" || err.message?.includes("aborted")) {
-            console.log("Firestore request aborted, skipping user data fetch");
-          } else {
-            console.error("Error fetching user data:", err);
-          }
-          // Still set basic user data even on error
+        const docSnap = await getDoc(docRef, { signal: controller.signal });
+
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          console.log("User data found:", userData);
+
+          setUser({
+            ...currentUser,
+            ...userData,
+            avatar: userData.avatar || "/defaultpfp.png",
+            wardrobe: userData.wardrobe || [],
+            tryHistory: userData.tryHistory || [],
+            totalTryCount: userData.totalTryCount || 0,
+            totalUploads: userData.totalUploads || 0,
+            freeTryonsLeft: userData.freeTryonsLeft || 15,
+            profileCompleted: userData.profileCompleted || false,
+          });
+        } else {
+          console.log("No user data found in Firestore, using basic user");
           setUser(currentUser);
-        } finally {
-          setFetchingUserData(false);
         }
+
+        // Cleanup in case auth state changes mid-fetch
+        return () => controller.abort();
+      }
+    } catch (err) {
+      if (err.name === "AbortError" || err.message?.includes("aborted")) {
+        console.info("⚠️ Firestore request aborted — safe to ignore.");
+      } else {
+        console.error("🔥 Error fetching user data:", err);
+      }
+      setUser(currentUser);
+    } finally {
+      setFetchingUserData(false);
+    }
       } else {
         setUser(null);
       }
