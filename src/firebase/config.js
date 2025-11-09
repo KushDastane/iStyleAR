@@ -36,7 +36,4 @@ try {
   storage = null;
 }
 
-// Removed forced signOut to prevent auth state resets on page load
-// This was causing repeated AbortErrors and blank screens on mobile
-
 export { auth, db, storage };

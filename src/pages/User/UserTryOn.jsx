@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
-import { useAuth } from "../../context/useAuth";
+import { useAuth } from "../../context/AuthContext";
 import CreativeCarousel from "../../Components/CreativeCarousel";
 import { FaRegEye, FaMagic } from "react-icons/fa";
 import axios from "axios";

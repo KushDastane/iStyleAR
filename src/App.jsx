@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { WardrobeProvider } from "./context/WardrobeContext";
@@ -26,7 +25,6 @@ import ErrorBoundary from "./Components/ErrorBoundary";
 import Footer from "./Components/Footer";
 
 function AppRoutes() {
-  console.log("AppRoutes rendering");
   return (
     <Routes>
       {/* ---------- PUBLIC ROUTES ---------- */}
@@ -58,19 +56,19 @@ function AppRoutes() {
 }
 
 export default function App() {
-  console.log("App component rendering");
   return (
     <ErrorBoundary>
-      <Router>
-        <AuthProvider>
-          <WardrobeProvider>
-            <RecommendationProvider>
+      <AuthProvider>
+        <WardrobeProvider>
+          <RecommendationProvider>
+            <Router>
               <AppRoutes />
+              {/* Render Footer only for public pages */}
               <Footer />
-            </RecommendationProvider>
-          </WardrobeProvider>
-        </AuthProvider>
-      </Router>
+            </Router>
+          </RecommendationProvider>
+        </WardrobeProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

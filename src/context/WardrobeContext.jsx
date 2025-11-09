@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useAuth } from './useAuth';
+import { useAuth } from "./AuthContext";
 import { addToWardrobe as addToWardrobeService, getWardrobeItems } from '../services/wardrobeService';
 
 const WardrobeContext = createContext();

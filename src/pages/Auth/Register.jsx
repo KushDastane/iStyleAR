@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { auth, db } from "../../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
@@ -24,6 +24,7 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // 1️⃣ Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         form.email,
@@ -31,8 +32,8 @@ export default function Register() {
       );
       const user = userCredential.user;
 
-      // Save extra info to Firestore
-      console.log("Creating user document in Firestore...");
+      // 2️⃣ Create Firestore user document
+      console.log("🧾 Creating Firestore document for:", user.uid);
       await setDoc(doc(db, "users", user.uid), {
         name: form.name,
         email: form.email,
@@ -43,24 +44,24 @@ export default function Register() {
         totalUploads: 0,
         freeTryonsLeft: 15,
         profileCompleted: false,
+        createdAt: new Date().toISOString(),
       });
-      console.log("User document created successfully");
 
-      toast.success("Registration successful!");
-      localStorage.setItem("newUser", "true");
+      console.log("✅ Firestore user doc created successfully");
+      toast.success("Registration successful! Please log in.");
 
-      // ✅ Navigate after a short delay so AuthContext syncs
-      setTimeout(() => {
-        navigate("/user/profile");
-      }, 700);
+      // 3️⃣ Prevent race: Sign out and redirect to login
+      await signOut(auth);
+      localStorage.removeItem("newUser"); // clear any flags
+      navigate("/login", { replace: true });
     } catch (error) {
-      console.error("Registration error:", error);
+      console.error("❌ Registration error:", error);
       toast.error(error.message);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 dark:from-gray-900 dark:via-gray-800 dark:to-black p-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 p-4 overflow-hidden">
       <div className="relative w-full max-w-md bg-white/20 backdrop-blur-lg rounded-3xl shadow-xl p-10 flex flex-col items-center">
         <h2 className="text-3xl font-bold mb-8 text-white text-center">
           Create Account
@@ -125,7 +126,6 @@ export default function Register() {
           </button>
         </form>
 
-        {/* Login Link */}
         <p className="mt-6 text-white/80 text-sm text-center">
           Already have an account?{" "}
           <Link to="/login" className="text-purple-300 hover:underline">
@@ -133,7 +133,7 @@ export default function Register() {
           </Link>
         </p>
 
-        {/* Decorative floating blur circles */}
+        {/* Floating decorations */}
         <div className="absolute -top-16 -left-16 w-40 h-40 bg-purple-500/30 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
         <div className="absolute -bottom-16 -right-16 w-60 h-60 bg-blue-400/30 rounded-full blur-3xl animate-pulse pointer-events-none"></div>
       </div>

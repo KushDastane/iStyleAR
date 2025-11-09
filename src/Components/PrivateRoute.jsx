@@ -1,24 +1,26 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/useAuth";
+import { useAuth } from "../context/AuthContext";
 
 export default function PrivateRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, userData, loading } = useAuth();
 
- if (loading)
-   return (
-     <div className="min-h-screen flex items-center justify-center text-white bg-black">
-       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C9E4C5]"></div>
-     </div>
-   );
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-white text-lg">
+        Loading your data...
+      </div>
+    );
+  }
 
- if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-
-  // If user exists but profileCompleted is false and localStorage has 'newUser', redirect to /user/profile
-  if (user && localStorage.getItem("newUser") && !user.profileCompleted) {
+  // Optional: redirect incomplete profiles
+  if (userData && !userData.profileCompleted) {
+    console.log("🧭 Redirecting to profile setup...");
     return <Navigate to="/user/profile" replace />;
   }
 
-  // Otherwise render children
   return children;
 }

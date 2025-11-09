@@ -12,7 +12,8 @@ import {
   FaEyeSlash,
 } from "react-icons/fa";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../context/useAuth";
+import { useAuth } from "../../context/AuthContext";
+
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -27,9 +28,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!auth) {
-      toast.error(
-        "Authentication service unavailable. Please check your connection."
-      );
+      toast.error("Authentication service unavailable. Please check your connection.");
       return;
     }
     try {
@@ -41,9 +40,7 @@ export default function Login() {
   };
 
   useEffect(() => {
-    console.log("Login page - user state:", user);
     if (user) {
-      console.log("User detected, navigating to /user");
       navigate("/user");
     }
   }, [user, navigate]);

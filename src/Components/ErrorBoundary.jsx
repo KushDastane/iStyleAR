@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -11,10 +11,7 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
-    // Log additional context
-    console.error("Error stack:", error.stack);
-    console.error("Component stack:", errorInfo.componentStack);
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
   render() {
@@ -22,12 +19,9 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-900 via-purple-900 to-blue-800 p-4">
           <div className="bg-white/20 backdrop-blur-lg rounded-3xl shadow-xl p-10 text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">
-              Oops! Something went wrong
-            </h2>
+            <h2 className="text-2xl font-bold text-white mb-4">Oops! Something went wrong</h2>
             <p className="text-white/80 mb-6">
-              The login screen encountered an issue. Please refresh the page or
-              try again later.
+              The login screen encountered an issue. Please refresh the page or try again later.
             </p>
             <button
               onClick={() => window.location.reload()}

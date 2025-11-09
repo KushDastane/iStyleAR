@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../../context/useAuth";
+import { useAuth } from "../../context/AuthContext";
 import { useWardrobe } from "../../context/WardrobeContext";
 import { useRecommendation } from "../../context/RecommendationContext";
 import CreativeCarousel from "../../Components/CreativeCarousel";

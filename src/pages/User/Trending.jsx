@@ -18,11 +18,11 @@ import {
   where,
   deleteDoc,
 } from "firebase/firestore";
-import { useAuth } from "../../context/useAuth";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Trending() {
   const { user } = useAuth();
-const defaultAvatar = "/defaultpfp.png";
+  const defaultAvatar = "/defaultpfp.png";
   const defaultImage =
     "https://res.cloudinary.com/dyiaqidiq/image/upload/v1759736842/white_rnphno.png";
   const [favorites, setFavorites] = useState([]);

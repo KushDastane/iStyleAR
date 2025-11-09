@@ -1,11 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { FaShoppingCart, FaUserCircle, FaBars, FaTimes } from "react-icons/fa";
+import {
+  Outlet,
+  Link,
+  useLocation,
+  useNavigate,
+  Navigate,
+} from "react-router-dom";
+import { FaShoppingCart, FaBars, FaTimes } from "react-icons/fa";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase/config";
 import { toast } from "react-toastify";
 import Logo from "../assets/logo.png";
-import { useAuth } from "../context/useAuth";
+import { useAuth } from "../context/AuthContext";
+
 
 export default function ProtectedLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -13,6 +20,19 @@ export default function ProtectedLayout() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const menuRef = useRef(null);
+
+  // ✅ Guards
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C9E4C5]"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -22,9 +42,7 @@ export default function ProtectedLayout() {
     };
 
     const handleScroll = () => {
-      if (menuOpen) {
-        setMenuOpen(false);
-      }
+      if (menuOpen) setMenuOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -44,10 +62,6 @@ export default function ProtectedLayout() {
   ];
 
   const handleLogout = async () => {
-    if (!auth) {
-      toast.error("Authentication service unavailable.");
-      return;
-    }
     try {
       await signOut(auth);
       toast.success("Logged out successfully!");
@@ -67,7 +81,7 @@ export default function ProtectedLayout() {
             <span className="font-bold text-xl text-gray-900">iStyleAR</span>
           </div>
 
-          {/* Middle: Nav Links (hidden on small screens) */}
+          {/* Middle: Nav Links */}
           <div className="hidden md:flex space-x-8">
             {navLinks.map((link) => (
               <Link
@@ -90,32 +104,28 @@ export default function ProtectedLayout() {
                   ? "text-purple-600"
                   : "text-gray-700"
               }`}
-              onClick={() => {
-                if (!loading && user) navigate("/user/wardrobe");
-              }}
+              onClick={() => navigate("/user/wardrobe")}
             />
-            {user && (
-              <img
-                src={user.avatar || "/defaultpfp.png"}
-                alt="Profile"
-                className={`w-8 h-8 rounded-full object-cover border-2 cursor-pointer hover:border-purple-600 ${
-                  location.pathname === "/user/profile"
-                    ? "border-purple-600 shadow-lg"
-                    : "border-gray-300"
-                }`}
-                onClick={() => navigate("/user/profile")}
-              />
-            )}
 
-            {/* Desktop Logout */}
+            <img
+              src={user.avatar || "/defaultpfp.png"}
+              alt="Profile"
+              className={`w-8 h-8 rounded-full object-cover border-2 cursor-pointer hover:border-purple-600 ${
+                location.pathname === "/user/profile"
+                  ? "border-purple-600 shadow-lg"
+                  : "border-gray-300"
+              }`}
+              onClick={() => navigate("/user/profile")}
+            />
+
             <button
               onClick={handleLogout}
-              className="hidden md:inline-block px-4 py-2 bg-red-700 hover:bg-red-900 text-white font-medium rounded-md w-fit self-start transition-colors"
+              className="hidden md:inline-block px-4 py-2 bg-red-700 hover:bg-red-900 text-white font-medium rounded-md transition-colors"
             >
               Logout
             </button>
 
-            {/* Hamburger Menu (small screens) */}
+            {/* Hamburger (mobile) */}
             <div className="md:hidden" ref={menuRef}>
               <button onClick={() => setMenuOpen(!menuOpen)}>
                 {menuOpen ? (
@@ -147,13 +157,12 @@ export default function ProtectedLayout() {
               </Link>
             ))}
 
-            {/* Subtle Mobile Logout */}
             <button
               onClick={() => {
                 handleLogout();
                 setMenuOpen(false);
               }}
-              className="px-4 py-2 bg-red-700 hover:bg-red-900 text-white font-medium rounded-md w-fit self-start transition-colors"
+              className="px-4 py-2 bg-red-700 hover:bg-red-900 text-white font-medium rounded-md transition-colors"
             >
               Logout
             </button>
@@ -161,7 +170,6 @@ export default function ProtectedLayout() {
         )}
       </nav>
 
-      {/* Outlet for child pages */}
       <main className="pt-16">
         <Outlet />
       </main>
