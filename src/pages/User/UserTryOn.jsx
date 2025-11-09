@@ -144,19 +144,37 @@ export default function UserTryOn() {
   }, [stream]);
 
   // 🎥 Start webcam
+  // 🎥 Start webcam (mobile-safe)
   const startWebcam = async () => {
     try {
+      console.log("Starting webcam...");
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: {
+          facingMode: "user", // ensures front cam on phones
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        audio: false,
       });
+
       setStream(mediaStream);
+
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play();
+
+        // play() must be triggered directly from user gesture
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => console.log("Camera feed playing ✅"))
+            .catch((err) => console.warn("Autoplay blocked:", err));
+        }
       }
     } catch (err) {
       console.error("Error accessing webcam:", err);
-      alert("Unable to access webcam. Please allow camera permissions.");
+      alert(
+        "Camera access failed. Use Chrome or Safari directly (not in-app browser) and allow camera permission."
+      );
     }
   };
 
@@ -492,14 +510,22 @@ export default function UserTryOn() {
                 autoPlay
                 playsInline
                 muted
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ transform: "scaleX(-1)" }}
+                className="absolute inset-0 w-full h-full object-cover bg-black"
+                style={{
+                  transform: "scaleX(-1)", // mirror selfie view
+                  backgroundColor: "black",
+                }}
               />
             )}
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full object-cover"
+              style={{
+                transform: "scaleX(-1)",
+                display: isLiveTryOn ? "block" : "none", // hide until live overlay starts
+              }}
             />
+
             {!stream && !tryOnImage && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
                 Your Try-On will appear here.
