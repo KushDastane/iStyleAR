@@ -11,9 +11,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (!auth) {
-      console.error(
-        "Firebase auth not initialized. Check your environment variables."
-      );
+      console.error("Firebase auth not initialized.");
       setLoading(false);
       return;
     }
@@ -24,6 +22,7 @@ export const AuthProvider = ({ children }) => {
         "Auth state changed:",
         currentUser ? "User logged in" : "No user"
       );
+
       if (currentUser) {
         try {
           if (!db) {
@@ -33,6 +32,7 @@ export const AuthProvider = ({ children }) => {
             console.log("Fetching user data from Firestore...");
             const docRef = doc(db, "users", currentUser.uid);
             const docSnap = await getDoc(docRef);
+
             if (docSnap.exists()) {
               const userData = docSnap.data();
               console.log("User data found:", userData);
@@ -59,6 +59,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         setUser(null);
       }
+
       setLoading(false);
     });
 
@@ -66,15 +67,25 @@ export const AuthProvider = ({ children }) => {
       console.log("Cleaning up auth state listener");
       unsubscribe();
     };
-  }, [auth, db]); // Add dependencies to force re-run if auth or db change
+  }, []); // empty dependency array to run only once on mount
 
   const logout = async () => {
     if (auth) {
       await signOut(auth);
+      setUser(null); // ensure state is cleared
     } else {
       console.error("Cannot logout: Firebase auth not initialized.");
     }
   };
+
+  // Render a loader while initializing to prevent blank screen
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <AuthContext.Provider value={{ user, logout, loading }}>
@@ -83,5 +94,5 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Add this at the bottom
+// Hook to use auth context
 export const useAuth = () => useContext(AuthContext);
