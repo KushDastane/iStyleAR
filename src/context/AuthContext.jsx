@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [auth, db]); // Add dependencies to force re-run if auth or db change
 
   const logout = async () => {
     if (auth) {

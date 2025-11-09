@@ -36,4 +36,9 @@ try {
   storage = null;
 }
 
+// Force refresh Firebase auth state on page load to avoid cached issues
+if (auth) {
+  auth.signOut().catch(() => {}); // Sign out to clear any cached state
+}
+
 export { auth, db, storage };
