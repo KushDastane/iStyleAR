@@ -97,7 +97,12 @@ export default function UserTryOn() {
       });
 
       videoRef.current.srcObject = mediaStream;
-      await videoRef.current.play();
+      try {
+        await videoRef.current.play();
+      } catch (playErr) {
+        console.error("Video play error:", playErr);
+        alert("Unable to play video. Please check your browser settings for autoplay.");
+      }
     } catch (err) {
       console.error("Webcam error:", err);
       alert("Unable to access webcam. Please allow camera permissions.");
@@ -298,10 +303,12 @@ export default function UserTryOn() {
                 style={{ transform: "scaleX(-1)" }}
               />
             )}
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+            {isLiveTryOn && (
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            )}
             {!stream && !tryOnImage && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
                 <p className="text-gray-500">Your Try-On will appear here.</p>
