@@ -3,7 +3,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../firebase/config";
 import { doc, setDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   FaUserAlt,
   FaEnvelope,
@@ -15,6 +15,7 @@ import {
 export default function Register() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -52,8 +53,8 @@ export default function Register() {
       toast.success("Registration successful!");
       localStorage.setItem("newUser", "true");
       console.log("Redirecting to profile setup...");
-      // Force a page reload to ensure auth state is properly initialized
-      window.location.href = "/user/profile";
+      // Wait for onAuthStateChanged to detect the user before navigating
+      navigate("/user/profile");
     } catch (error) {
       toast.error(error.message);
     }
