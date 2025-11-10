@@ -108,12 +108,26 @@ export default function TryFreePage() {
     canvas.height = video.videoHeight;
 
     // Draw live video
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Mirror the video on canvas
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
 
     // Draw last overlay if available
     if (lastOverlayRef.current) {
-      ctx.drawImage(lastOverlayRef.current, 0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(
+        lastOverlayRef.current,
+        -canvas.width,
+        0,
+        canvas.width,
+        canvas.height
+      );
+      ctx.restore();
     }
+
 
     try {
       // Downscale canvas for network optimization - reduce to 50% size
