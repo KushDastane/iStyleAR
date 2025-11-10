@@ -196,12 +196,20 @@ export default function Trending() {
           console.log("Uploader data:", uploaderData);
 
           if (uploaderData) {
+            // pick the uploader's most added outfit (safe copy + guard)
+            const topItem = (topUploader.items || [])
+              .slice()
+              .sort((a, b) => (b.tryOns || 0) - (a.tryOns || 0))[0];
+
             setStarOfWeek({
               name:
                 uploaderData.name || uploaderData.displayName || "Anonymous",
               avatar: uploaderData.avatar || defaultAvatar,
-              tryOns: topUploader.totalAdds,
-              outfit: topUploader.items[0]?.costumeImageUrl || defaultImage,
+              tryOns: topItem?.tryOns ?? topUploader.totalAdds ?? 0,
+              outfit:
+                topItem?.costumeImageUrl ||
+                topUploader.items?.[0]?.costumeImageUrl ||
+                defaultImage,
             });
           } else {
             setStarOfWeek({
@@ -211,6 +219,7 @@ export default function Trending() {
               outfit: defaultImage,
             });
           }
+
         } catch (docErr) {
           console.error("Error fetching uploader doc:", docErr);
           setStarOfWeek({
