@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { db } from "../../firebase/config";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+} from "firebase/firestore";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import DeleteAccountConfirm from "../../Components/DeleteAccountConfirm";
@@ -18,6 +24,7 @@ import {
   FaTrash,
   FaEdit,
   FaSave,
+  FaTrophy,
 } from "react-icons/fa";
 import EditEmailPassword from "../../Components/EditEmailPassword";
 
@@ -48,9 +55,11 @@ export default function ProfileSetup() {
   const [showAvatarOptions, setShowAvatarOptions] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [savedTryOns, setSavedTryOns] = useState([]);
 
   useEffect(() => {
     fetchProfileData();
+    fetchSavedTryOns();
   }, [user]);
 
   const fetchProfileData = async () => {
@@ -76,6 +85,23 @@ export default function ProfileSetup() {
     }
   };
 
+  const fetchSavedTryOns = async () => {
+    if (!user) return;
+
+    try {
+      const triesSnap = await getDocs(
+        collection(db, "users", user.uid, "tries")
+      );
+      const tries = triesSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setSavedTryOns(tries);
+    } catch (err) {
+      console.error("Error fetching saved try-ons:", err);
+    }
+  };
+
   const saveProfileData = async () => {
     if (!user) return;
 
@@ -93,7 +119,7 @@ export default function ProfileSetup() {
       await refreshUser();
 
       localStorage.removeItem("newUser"); // remove new user flag
-      toast.success("Profile updated successfully!");
+      toast.success("Uploaded. CLick Save.");
       // Redirect to dashboard after profile completion
       navigate("/user");
     } catch (error) {
@@ -222,7 +248,7 @@ export default function ProfileSetup() {
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Top Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 space-y-10">
             <div className="flex flex-col md:flex-row items-center gap-6">
               {/* Profile Picture */}
               <div className="relative">
@@ -333,10 +359,9 @@ export default function ProfileSetup() {
                 </p>
               </div>
             </div>
-          </div>
 
-          {/* Profile Setup Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+            {/* Profile Setup Section */}
+
             <div className="flex items-center gap-3 mb-6">
               <FaUser className="w-6 h-6 text-[#C9E4C5]" />
               <h2 className="text-xl font-semibold text-gray-800">
@@ -441,17 +466,25 @@ export default function ProfileSetup() {
               <p className="text-sm text-gray-600">Saved outfits</p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <div
+              onClick={() => navigate("/user/captures")}
+              className="cursor-pointer bg-white rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition transform hover:-translate-y-0.5"
+            >
               <div className="w-12 h-12 bg-[#C9E4C5] rounded-full flex items-center justify-center mx-auto mb-3">
                 <FaCamera className="w-6 h-6 text-gray-700" />
               </div>
               <h3 className="font-semibold text-gray-800 mb-1">My Captures</h3>
-              <p className="text-sm text-gray-600">Saved AR try-on photos</p>
+              <p className="text-sm text-gray-600">
+                {savedTryOns.length} Saved AR try-on photos
+              </p>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <div
+              onClick={() => navigate("/user/achievements")}
+              className="cursor-pointer bg-white rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition transform hover:-translate-y-0.5"
+            >
               <div className="w-12 h-12 bg-[#C9E4C5] rounded-full flex items-center justify-center mx-auto mb-3">
-                <FaStar className="w-6 h-6 text-gray-700" />
+                <FaTrophy className="w-6 h-6 text-gray-700" />
               </div>
               <h3 className="font-semibold text-gray-800 mb-1">
                 My Achievements

@@ -45,3 +45,36 @@ input:-webkit-autofill:active {
 .auth-input {
   caret-color: black;
 }
+
+.live-ripple {
+  position: relative;
+}
+
+.live-ripple::after {
+  content: "";
+  position: absolute;
+  width: 140%;
+  height: 140%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: rgba(139, 92, 246, 0.35);
+  animation: ripplePulse 1.2s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ripplePulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.7);
+    opacity: 0.6;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.3;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.4);
+  }
+}

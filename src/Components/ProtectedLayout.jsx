@@ -59,6 +59,8 @@ export default function ProtectedLayout() {
     { name: "Trending", path: "/user/trending" },
     { name: "Virtual Try-On", path: "/user/try-on" },
     { name: "View Cart", path: "/user/wardrobe" },
+    { name: "Achievements", path: "/user/achievements" },
+     { name: "My Captures", path: "/user/captures" },
   ];
 
   const handleLogout = async () => {

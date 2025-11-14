@@ -290,6 +290,7 @@ export default function Trending() {
         return;
       }
       await addDoc(wardrobeRef, {
+        itemId: item.id,
         name: item.name,
         imageUrl: item.costumeImageUrl, // ⚠️ use costume, not user try-on
         uploaderId: item.uploaderId,

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../../firebase/config";
+import { db } from "../../firebase/config";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -28,6 +27,9 @@ export default function UserTryOn() {
 
   const [stream, setStream] = useState(null);
   const [isLiveTryOn, setIsLiveTryOn] = useState(false);
+
+  const [highlightLive, setHighlightLive] = useState(false);
+
 
   const sizes = ["S", "M", "L", "XL", "XXL"];
   const videoRef = useRef(null);
@@ -80,34 +82,42 @@ export default function UserTryOn() {
   }, [stream]);
 
   // Start webcam
-  const startWebcam = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-      });
-      setStream(mediaStream);
+ const startWebcam = async () => {
+   try {
+     const mediaStream = await navigator.mediaDevices.getUserMedia({
+       video: true,
+     });
+     setStream(mediaStream);
 
-      await new Promise((resolve) => {
-        const checkRef = setInterval(() => {
-          if (videoRef.current) {
-            clearInterval(checkRef);
-            resolve();
-          }
-        }, 100);
-      });
+     await new Promise((resolve) => {
+       const checkRef = setInterval(() => {
+         if (videoRef.current) {
+           clearInterval(checkRef);
+           resolve();
+         }
+       }, 100);
+     });
 
-      videoRef.current.srcObject = mediaStream;
-      try {
-        await videoRef.current.play();
-      } catch (playErr) {
-        console.error("Video play error:", playErr);
-        alert("Unable to play video. Please check your browser settings for autoplay.");
-      }
-    } catch (err) {
-      console.error("Webcam error:", err);
-      alert("Unable to access webcam. Please allow camera permissions.");
-    }
-  };
+     videoRef.current.srcObject = mediaStream;
+
+     try {
+       await videoRef.current.play();
+
+       // 👇 ADD THIS: highlight the LIVE button
+       setHighlightLive(true);
+       setTimeout(() => setHighlightLive(false), 4000);
+     } catch (playErr) {
+       console.error("Video play error:", playErr);
+       alert(
+         "Unable to play video. Please check your browser settings for autoplay."
+       );
+     }
+   } catch (err) {
+     console.error("Webcam error:", err);
+     alert("Unable to access webcam. Please allow camera permissions.");
+   }
+ };
+
 
   // Process frame
   const processFrame = async () => {
@@ -204,10 +214,16 @@ export default function UserTryOn() {
     if (canvasRef.current && isLiveTryOn) {
       const url = canvasRef.current.toDataURL("image/png");
       setTryOnImage(url);
-      stopLiveTryOn();
+      stopLiveTryOn(); // Freeze the live try-on at this frame
     } else {
       setTryOnImage(selectedDress.imageUrl);
     }
+  };
+
+  const handleRetake = () => {
+    setTryOnImage(null);
+    setIsPublic(false);
+    startLiveTryOn(); // Resume live try-on
   };
 
   const handleUploadTryOn = async () => {
@@ -216,14 +232,24 @@ export default function UserTryOn() {
     setUploading(true);
 
     try {
-      const tryOnRef = ref(
-        storage,
-        `tryfree/${user.uid}/tryOns/${Date.now()}_tryon.png`
-      );
+      // Upload to Cloudinary
+      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
       const response = await fetch(tryOnImage);
       const blob = await response.blob();
-      await uploadBytes(tryOnRef, blob);
-      const tryOnUrl = await getDownloadURL(tryOnRef);
+
+      const formData = new FormData();
+      formData.append("file", blob);
+      formData.append("upload_preset", uploadPreset);
+      formData.append("folder", `tryons/${user.uid}`);
+
+      const cloudinaryResponse = await axios.post(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        formData
+      );
+
+      const tryOnUrl = cloudinaryResponse.data.secure_url;
 
       await addDoc(collection(db, "users", user.uid, "tries"), {
         dressUrl: selectedDress.imageUrl,
@@ -262,39 +288,45 @@ export default function UserTryOn() {
   };
 
   return (
-    <div className="relative min-h-screen p-4 md:p-6 flex flex-col items-center overflow-hidden">
+    <div
+      className="
+  relative min-h-screen 
+  p-4 md:p-6 
+  pb-32  /* <-- ADDED: space for bottom bar on phone */
+  flex flex-col items-center 
+  overflow-x-hidden
+"
+    >
       {/* Background & Header */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-indigo-200 to-blue-200 opacity-50 -z-10"></div>
       <div className="absolute -top-32 -left-32 w-64 h-64 bg-purple-300/40 rounded-full blur-[120px] -z-10"></div>
       <div className="absolute bottom-0 right-0 w-72 h-72 bg-blue-300/40 rounded-full blur-[120px] -z-10"></div>
 
+      {/* Header */}
       <div className="text-center mb-8 relative bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white rounded-xl py-6 px-4 shadow-lg">
         <h1 className="text-2xl md:text-4xl font-extrabold flex items-center justify-center gap-2 tracking-tight">
           <FaMagic className="text-white/90" />
-          <span className="drop-shadow-sm">Virtual Try-On</span>
+          Virtual Try-On
           <FaRegEye className="text-white/90" />
         </h1>
         <p className="mt-2 text-xs md:text-sm text-white/90 font-medium tracking-wide">
-          Select a dress <span className="font-bold text-white/70">•</span>{" "}
-          Choose your size <span className="font-bold text-white/70">•</span>{" "}
-          Capture <span className="font-bold text-white/70">•</span> Save
+          Select • Size • Capture • Save
         </p>
       </div>
 
-      {/* Free Try-ons */}
+      {/* Try-on count */}
       <div className="mb-6 bg-white shadow-md rounded-full px-6 py-2">
         <span className="font-semibold text-gray-700">
           Free Try-Ons Left: {freeTryonsLeft}
         </span>
       </div>
 
-      {/* Main Section */}
+      {/* MAIN SECTION */}
       <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-6">
-        {/* Try-On Display */}
-        {/* Try-On Display */}
+        {/* Try-on Preview */}
         <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden relative">
           <div className="relative w-full aspect-square bg-black">
-            {/* ✅ Live Video Feed */}
+            {/* Live video */}
             <video
               ref={videoRef}
               autoPlay
@@ -304,14 +336,11 @@ export default function UserTryOn() {
               style={{
                 transform: "scaleX(-1)",
                 backgroundColor: "black",
-                display: stream ? "block" : "none",
-              }}
-              onLoadedMetadata={() => {
-                videoRef.current?.play().catch(() => {});
+                display: stream && !tryOnImage ? "block" : "none",
               }}
             />
 
-            {/* ✅ Canvas overlay (no longer blocks video) */}
+            {/* Canvas Overlay */}
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -322,18 +351,18 @@ export default function UserTryOn() {
               }}
             />
 
-            {/* ✅ Fallbacks */}
-            {!stream && !tryOnImage && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                Your Try-On will appear here.
-              </div>
-            )}
-            {!stream && tryOnImage && (
+            {/* Final screenshot / fallback */}
+            {tryOnImage ? (
               <img
                 src={tryOnImage}
-                alt="tryon"
                 className="absolute inset-0 w-full h-full object-contain"
               />
+            ) : (
+              !stream && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
+                  Your Try-On will appear here.
+                </div>
+              )
             )}
           </div>
         </div>
@@ -354,6 +383,7 @@ export default function UserTryOn() {
             )}
           </div>
 
+          {/* Size Picker */}
           {selectedDress && (
             <div className="flex flex-wrap justify-center gap-3 mt-2">
               {sizes.map((size) => (
@@ -374,64 +404,104 @@ export default function UserTryOn() {
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 mt-6 w-full max-w-2xl">
-        {!stream ? (
-          <button
-            onClick={startWebcam}
-            className="flex-1 px-6 py-2 bg-blue-600 text-white rounded-lg"
+      {/* ACTION BAR (NON-FIXED, CLEAN, MODERN) */}
+      {!tryOnImage ? (
+        <div className="mt-6 w-full max-w-lg mx-auto">
+          <div
+            className="bg-white/90 backdrop-blur-xl shadow-lg rounded-2xl 
+                    p-4 flex items-center justify-around"
           >
-            Start Webcam
-          </button>
-        ) : !isLiveTryOn ? (
-          <button
-            onClick={startLiveTryOn}
-            className="flex-1 px-6 py-2 bg-purple-600 text-white rounded-lg"
-          >
-            Start Live Try-On
-          </button>
-        ) : (
-          <button
-            onClick={stopLiveTryOn}
-            className="flex-1 px-6 py-2 bg-red-600 text-white rounded-lg"
-          >
-            Stop Live Try-On
-          </button>
-        )}
+            {/* START / LIVE / STOP */}
+            {!stream ? (
+              <button
+                onClick={startWebcam}
+                className="flex flex-col items-center"
+              >
+                <FaCamera className="text-2xl text-blue-600" />
+                <span className="text-xs font-medium mt-1 text-blue-700">
+                  Start
+                </span>
+              </button>
+            ) : !isLiveTryOn ? (
+              <button
+                onClick={startLiveTryOn}
+                className={`flex flex-col items-center relative ${
+                  highlightLive ? "live-ripple" : ""
+                }`}
+              >
+                <FaMagic className="text-2xl text-purple-600" />
+                <span className="text-xs font-medium mt-1 text-purple-700">
+                  Live
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={stopLiveTryOn}
+                className="flex flex-col items-center"
+              >
+                <FaStop className="text-2xl text-red-600" />
+                <span className="text-xs font-medium mt-1 text-red-700">
+                  Stop
+                </span>
+              </button>
+            )}
 
-        <button
-          onClick={handleCaptureTryOn}
-          className="flex-1 px-6 py-2 bg-green-600 text-white rounded-lg"
-        >
-          Capture Try-On
-        </button>
-        <button
-          onClick={handleReset}
-          className="flex-1 px-6 py-2 bg-gray-600 text-white rounded-lg"
-        >
-          Reset
-        </button>
+            {/* CAPTURE */}
+            <button
+              onClick={handleCaptureTryOn}
+              className="flex flex-col items-center"
+            >
+              <FaRegEye className="text-2xl text-green-600" />
+              <span className="text-xs font-medium mt-1 text-green-700">
+                Capture
+              </span>
+            </button>
 
-        {tryOnImage && (
-          <>
-            <label className="flex items-center space-x-2 text-gray-700">
+            {/* RESET */}
+            <button
+              onClick={handleReset}
+              className="flex flex-col items-center"
+            >
+              <FaCamera className="text-xl rotate-180 text-gray-600" />
+              <span className="text-xs font-medium mt-1 text-gray-700">
+                Reset
+              </span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 w-full max-w-lg mx-auto">
+          <div className="bg-white/95 backdrop-blur-xl shadow-lg rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex w-full justify-between">
+              <button
+                onClick={handleRetake}
+                className="w-[48%] py-2 bg-orange-500 text-white rounded-lg font-medium"
+              >
+                Retake
+              </button>
+
+              <button
+                onClick={handleUploadTryOn}
+                disabled={uploading}
+                className="w-[48%] py-2 bg-blue-600 text-white rounded-lg font-medium"
+              >
+                {uploading ? "Uploading..." : "Save"}
+              </button>
+            </div>
+
+            {/* PUBLIC TOGGLE */}
+            <label className="flex items-center gap-2 text-gray-700 text-sm font-medium">
               <input
                 type="checkbox"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
+                className="w-4 h-4"
               />
-              <span>Make Public & Earn Reward</span>
+              Make Public + Earn Reward
             </label>
-            <button
-              onClick={handleUploadTryOn}
-              disabled={uploading}
-              className="flex-1 px-6 py-2 bg-blue-500 text-white rounded-lg"
-            >
-              {uploading ? "Uploading..." : "Save Try-On"}
-            </button>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

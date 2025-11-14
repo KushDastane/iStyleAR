@@ -15,6 +15,8 @@ import Trending from "./pages/User/Trending";
 import UserTryOn from "./pages/User/UserTryOn";
 import VirtualWardrobe from "./pages/User/VirtualWardrobe";
 import ProfileSetup from "./pages/User/ProfileSetup";
+import Achievements from "./pages/User/Achievements";
+import MyCaptures from "./pages/User/MyCaptures";
 
 // Layouts & Routes
 import PrivateRoute from "./Components/PrivateRoute";
@@ -47,6 +49,8 @@ function AppRoutes() {
         <Route path="try-on" element={<UserTryOn />} />
         <Route path="wardrobe" element={<VirtualWardrobe />} />
         <Route path="profile" element={<ProfileSetup />} />
+        <Route path="achievements" element={<Achievements />} />
+        <Route path="captures" element={<MyCaptures />} />
       </Route>
 
       {/* ---------- FALLBACK ---------- */}
