@@ -110,9 +110,9 @@ export default function Achievements() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-10">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-10">
+        <div className="text-center mb-10 flex flex-col items-center">
+          <FaTrophy className="text-yellow-500 text-4xl" />
           <h1 className="text-3xl md:text-4xl font-bold text-gray-800 flex items-center justify-center gap-2 mb-2">
-            <FaTrophy className="text-yellow-500" />
             My Achievements
           </h1>
           <p className="text-gray-500 text-sm md:text-base">

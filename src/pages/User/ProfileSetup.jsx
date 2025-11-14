@@ -458,7 +458,10 @@ export default function ProfileSetup() {
 
           {/* My Space Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-2xl shadow-lg p-6 text-center">
+            <div
+              onClick={() => navigate("/user/wardrobe")}
+              className="bg-white rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition transform hover:-translate-y-0.5 cursor-pointer"
+            >
               <div className="w-12 h-12 bg-[#C9E4C5] rounded-full flex items-center justify-center mx-auto mb-3">
                 <FaUser className="w-6 h-6 text-gray-700" />
               </div>

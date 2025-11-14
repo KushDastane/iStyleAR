@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { db } from "../../firebase/config";
 import { collection, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { toast } from "react-toastify";
-import { FaTrash, FaDownload, FaShare } from "react-icons/fa";
+import { FaTrash, FaDownload, FaShare, FaCamera } from "react-icons/fa";
 
 export default function MyCaptures() {
   const { user, loading: authLoading } = useAuth(); // ⭐ <-- IMPORTANT
@@ -147,7 +147,6 @@ export default function MyCaptures() {
     });
   };
 
-
   const handleDelete = async (captureId) => {
     if (!window.confirm("Are you sure you want to delete this capture?"))
       return;
@@ -162,57 +161,52 @@ export default function MyCaptures() {
     }
   };
 
-const handleDownload = async (imageUrl, captureId) => {
-  try {
-    const blob = await addWatermark(imageUrl);
-    const url = URL.createObjectURL(blob);
+  const handleDownload = async (imageUrl, captureId) => {
+    try {
+      const blob = await addWatermark(imageUrl);
+      const url = URL.createObjectURL(blob);
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `tryon-${captureId}.jpg`;
-    link.click();
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `tryon-${captureId}.jpg`;
+      link.click();
 
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("Download error:", err);
-    toast.error("Failed to download image");
-  }
-};
-
-
-
-const handleShare = async (imageUrl) => {
-  const caption =
-    "Check out my virtual try-on on iStyleAR — a fun virtual try-on platform!\nRegister now at https://istylear.netlify.app/ 👗✨";
-
-  try {
-    const blob = await addWatermark(imageUrl);
-    const file = new File([blob], "tryon.jpg", { type: "image/jpeg" });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: "My Virtual Try-On",
-        text: caption,
-      });
-      return;
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download error:", err);
+      toast.error("Failed to download image");
     }
+  };
 
-    // fallback for iOS/desktop
-    await navigator.clipboard.writeText(caption);
-    toast.info("Caption copied! Paste it manually.");
+  const handleShare = async (imageUrl) => {
+    const caption =
+      "Check out my virtual try-on on iStyleAR — a fun virtual try-on platform!\nRegister now at https://istylear.netlify.app/ 👗✨";
 
-    if (navigator.share) {
-      await navigator.share({ files: [file] });
+    try {
+      const blob = await addWatermark(imageUrl);
+      const file = new File([blob], "tryon.jpg", { type: "image/jpeg" });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "My Virtual Try-On",
+          text: caption,
+        });
+        return;
+      }
+
+      // fallback for iOS/desktop
+      await navigator.clipboard.writeText(caption);
+      toast.info("Caption copied! Paste it manually.");
+
+      if (navigator.share) {
+        await navigator.share({ files: [file] });
+      }
+    } catch (err) {
+      console.error("Share error:", err);
+      toast.error("Failed to share image");
     }
-  } catch (err) {
-    console.error("Share error:", err);
-    toast.error("Failed to share image");
-  }
-};
-
-
-
+  };
 
   // --------------------------------------------------------
   // 5️⃣ Captures exist → show grid
@@ -220,7 +214,8 @@ const handleShare = async (imageUrl) => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-10">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 flex flex-col items-center">
+          <FaCamera className="text-purple-600 text-3xl" />
           <h1 className="text-3xl font-bold text-gray-800 mb-2">My Captures</h1>
           <p className="text-gray-600">
             View and manage your saved virtual try-ons

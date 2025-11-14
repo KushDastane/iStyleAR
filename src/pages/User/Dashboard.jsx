@@ -97,7 +97,7 @@ export default function Dashboard() {
   }, [user, wardrobeItems]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-indigo-50 py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Welcome Header */}
         <div className="mb-10 text-center md:text-left">
@@ -156,7 +156,8 @@ export default function Dashboard() {
 
           <div className="bg-white p-4 rounded-2xl shadow-sm">
             <div className="flex items-center mb-3 space-x-2">
-              <FaHeart className="text-green-600 w-5 h-5" />
+              <div className="border-l-6 border-green-600 h-6 rounded-2xl"></div>
+
               <h2 className="text-gray-800 font-medium text-lg">
                 Top Suggestions
               </h2>
