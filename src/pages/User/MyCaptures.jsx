@@ -40,6 +40,10 @@ export default function MyCaptures() {
   const [selectedCapture, setSelectedCapture] = useState(null);
   const [filter, setFilter] = useState("all");
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
   // ------------------------------
   // Fetch captures from Firestore
   // ------------------------------

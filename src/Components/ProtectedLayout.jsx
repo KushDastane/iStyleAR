@@ -12,6 +12,8 @@ import { auth } from "../firebase/config";
 import { toast } from "react-toastify";
 import Logo from "../assets/logo.png";
 import { useAuth } from "../context/AuthContext";
+import { useWardrobe } from "../context/WardrobeContext";
+
 
 export default function ProtectedLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -20,6 +22,8 @@ export default function ProtectedLayout() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const menuRef = useRef(null);
+  const { wardrobeItems } = useWardrobe();
+
 
   // ✅ Guards
   if (loading) {
@@ -142,7 +146,7 @@ export default function ProtectedLayout() {
               >
                 <FaShoppingCart className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full font-bold">
-                  3
+                 {wardrobeItems.length}
                 </span>
               </button>
 
