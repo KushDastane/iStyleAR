@@ -507,7 +507,10 @@ export default function UserTryOn() {
         className="flex flex-col lg:flex-row w-full max-w-6xl gap-6"
       >
         {/* Camera */}
-        <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow bg-white overflow-hidden relative">
+        <div
+          className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow bg-white overflow-hidden relative flex items-center justify-center
+"
+        >
           <div className="relative w-full aspect-square bg-black">
             {/* Gesture message */}
             {gestureMessage && (
