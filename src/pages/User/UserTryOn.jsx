@@ -36,62 +36,73 @@ export default function UserTryOn() {
   const [highlightLive, setHighlightLive] = useState(false);
   const [showPalmHint, setShowPalmHint] = useState(false);
 
+  // Gesture / helper UI
+  const [gestureMessage, setGestureMessage] = useState("");
+  const [showGestureGuide, setShowGestureGuide] = useState(false); // always during live
+  const [showDistanceWarning, setShowDistanceWarning] = useState(false);
+
+  // Countdown 3→2→1
+  const [countdown, setCountdown] = useState(null);
+
   const sizes = ["S", "M", "L", "XL", "XXL"];
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const lastOverlayRef = useRef(null);
   const isProcessingRef = useRef(false);
+  const overlayFrozenRef = useRef(false); // 🔥 NEW: freeze backend calls during countdown
   const isLiveTryOnRef = useRef(false);
   const carouselRef = useRef(null);
   const selectedDressRef = useRef(null);
 
-  // Gesture states
-  const [gestureMessage, setGestureMessage] = useState("");
   const detectorRef = useRef(null);
-  const lastGestureTimeRef = useRef(0); // throttle gestures
-
-  // NEW: Gesture helper UI state
-  const [showGestureGuide, setShowGestureGuide] = useState(true);
-  const [showDistanceWarning, setShowDistanceWarning] = useState(false);
+  const lastGestureTimeRef = useRef(0);
   const missedFramesRef = useRef(0);
 
-  // Capture Button Ref
   const captureButtonRef = useRef(null);
+  const cameraSectionRef = useRef(null);
 
-  // Fetch free try-ons
+  useEffect(() => {
+    if (cameraSectionRef.current) {
+      // small timeout ensures full layout rendered
+      setTimeout(() => {
+        cameraSectionRef.current.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 200);
+    }
+  }, []);
+
+  // ---------------- FETCH USER / WARDROBE ----------------
+
   useEffect(() => {
     if (!user) return;
-    const fetchUserData = async () => {
-      const userDocSnap = await getDoc(doc(db, "users", user.uid));
-      if (userDocSnap.exists()) {
-        setFreeTryonsLeft(userDocSnap.data().freeTryonsLeft ?? 15);
+    const fetchUser = async () => {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) {
+        setFreeTryonsLeft(snap.data().freeTryonsLeft ?? 15);
       } else {
         await updateDoc(doc(db, "users", user.uid), { freeTryonsLeft: 15 });
         setFreeTryonsLeft(15);
       }
     };
-    fetchUserData();
+    fetchUser();
   }, [user]);
 
-  // Fetch wardrobe items
   useEffect(() => {
     if (!user) return;
     const fetchWardrobe = async () => {
-      const wardrobeSnap = await getDocs(
-        collection(db, "users", user.uid, "wardrobe")
-      );
-      const items = wardrobeSnap.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
+      const snap = await getDocs(collection(db, "users", user.uid, "wardrobe"));
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setWardrobeItems(items);
       if (items.length > 0 && !selectedDress) setSelectedDress(items[0]);
     };
     fetchWardrobe();
   }, [user]);
 
-  // Load MediaPipe Hand Detector
+  // ---------------- LOAD HAND DETECTOR ----------------
+
   useEffect(() => {
     async function loadDetector() {
       try {
@@ -104,64 +115,58 @@ export default function UserTryOn() {
     loadDetector();
   }, []);
 
-  // Cleanup
+  // ---------------- CLEANUP ----------------
+
   useEffect(() => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach((t) => t.stop());
       }
       isLiveTryOnRef.current = false;
     };
   }, [stream]);
 
-  // Whenever dress changes, sync ref + clear old overlay
+  // Sync selected dress with ref
   useEffect(() => {
     selectedDressRef.current = selectedDress || null;
     lastOverlayRef.current = null;
     isProcessingRef.current = false;
   }, [selectedDress]);
 
-  // Start webcam
+  // ---------------- START WEBCAM ----------------
+
   const startWebcam = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-      });
-      setStream(mediaStream);
+      const s = await navigator.mediaDevices.getUserMedia({ video: true });
+      setStream(s);
 
       await new Promise((resolve) => {
-        const checkRef = setInterval(() => {
+        const check = setInterval(() => {
           if (videoRef.current) {
-            clearInterval(checkRef);
+            clearInterval(check);
             resolve();
           }
         }, 100);
       });
 
-      videoRef.current.srcObject = mediaStream;
+      videoRef.current.srcObject = s;
+      await videoRef.current.play();
 
-      try {
-        await videoRef.current.play();
-
-        setHighlightLive(true);
-        setTimeout(() => setHighlightLive(false), 4000);
-      } catch (playErr) {
-        console.error("Video play error:", playErr);
-        alert("Unable to play video. Please allow camera permissions.");
-      }
+      setHighlightLive(true);
+      setTimeout(() => setHighlightLive(false), 4000);
     } catch (err) {
-      console.error("Webcam error:", err);
+      console.error(err);
       alert("Unable to access webcam. Please allow camera permissions.");
     }
   };
 
-  // Process frame (backend overlay)
-  const processFrame = async () => {
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
+  // ---------------- FRAME PROCESSING (OVERLAY) ----------------
 
-    if (!canvas || !video) return;
+  const processFrame = async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
 
     if (
       canvas.width !== video.videoWidth ||
@@ -172,17 +177,24 @@ export default function UserTryOn() {
     }
 
     const ctx = canvas.getContext("2d");
-
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw live video
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    // Draw last known overlay (frozen or live)
     if (lastOverlayRef.current) {
       ctx.drawImage(lastOverlayRef.current, 0, 0, canvas.width, canvas.height);
     }
 
     const currentDress = selectedDressRef.current;
 
-    if (!isProcessingRef.current && currentDress?.imageUrl) {
+    // 🔥 KEY PART: DO NOT CALL BACKEND WHEN OVERLAY IS FROZEN (countdown)
+    if (
+      !overlayFrozenRef.current &&
+      !isProcessingRef.current &&
+      currentDress?.imageUrl
+    ) {
       isProcessingRef.current = true;
       try {
         const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
@@ -222,47 +234,63 @@ export default function UserTryOn() {
     }
   };
 
-  // ---------------- GESTURES -----------------
+  // ---------------- COUNTDOWN + FREEZE OVERLAY ----------------
 
-  const triggerCaptureButton = () => {
-    if (captureButtonRef.current) {
-      captureButtonRef.current.click();
-    }
+  const startCountdownCapture = () => {
+    // ⛔ Stop backend updates but keep video moving
+    overlayFrozenRef.current = true;
+    setGestureMessage("✋ Hold still...");
+    setCountdown(3);
+
+    let current = 3;
+    const intervalId = setInterval(() => {
+      current -= 1;
+      if (current <= 0) {
+        clearInterval(intervalId);
+        setCountdown(null);
+        setGestureMessage("");
+
+        // At this point: video is on, overlay is frozen.
+        // Capture current canvas frame as final image
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const url = canvas.toDataURL("image/png");
+          setTryOnImage(url);
+        }
+
+        stopLiveTryOn();
+      } else {
+        setCountdown(current);
+      }
+    }, 1000);
   };
+
+  // ---------------- GESTURE HANDLER ----------------
 
   const handleGesture = (g) => {
     const now = performance.now();
-    // throttle to avoid crazy fast cycling
+    // throttle so gestures don’t spam
     if (now - lastGestureTimeRef.current < 2500) return;
     lastGestureTimeRef.current = now;
 
-   if (g === "CAPTURE") {
-     setGestureMessage("✋ Capturing...");
-
-     // small delay so user can move hand away
-     setTimeout(() => {
-       setGestureMessage("");
-       triggerCaptureButton();
-     }, 450); // 250ms delay
-
-     return;
-   }
-
+    if (g === "CAPTURE") {
+      // Start 3-2-1 timer & freeze overlay
+      startCountdownCapture();
+      return;
+    }
 
     if (!wardrobeItems.length || !selectedDressRef.current) return;
 
-    const currentIdx = wardrobeItems.findIndex(
+    const idx = wardrobeItems.findIndex(
       (i) => i.id === selectedDressRef.current.id
     );
-    const safeIdx = currentIdx === -1 ? 0 : currentIdx;
+    const safeIdx = idx === -1 ? 0 : idx;
 
     if (g === "NEXT") {
       const nextIndex = (safeIdx + 1) % wardrobeItems.length;
       const nextDress = wardrobeItems[nextIndex];
-
       setSelectedDress(nextDress);
       setGestureMessage("👍 Next Dress");
-
       carouselRef.current?.slideTo(nextIndex);
     }
 
@@ -270,13 +298,13 @@ export default function UserTryOn() {
       const prevIndex =
         (safeIdx - 1 + wardrobeItems.length) % wardrobeItems.length;
       const prevDress = wardrobeItems[prevIndex];
-
       setSelectedDress(prevDress);
       setGestureMessage("👎 Previous Dress");
-
       carouselRef.current?.slideTo(prevIndex);
     }
   };
+
+  // ---------------- GESTURE DETECTION LOOP ----------------
 
   const startGestureDetection = () => {
     const video = videoRef.current;
@@ -290,27 +318,15 @@ export default function UserTryOn() {
         t || performance.now()
       );
 
-      const gesture = detectGesture(results?.landmarks);
+      const landmarks = results?.landmarks;
+      const gesture = detectGesture(landmarks);
 
       if (gesture) {
         missedFramesRef.current = 0;
         setShowDistanceWarning(false);
-
-        // ❗ Only hide guide on first gesture after Live starts
-        if (!gestureMessage) {
-          setShowGestureGuide(false);
-        }
-
         handleGesture(gesture);
       } else {
         missedFramesRef.current += 1;
-
-        // Show guide after some missed frames (~0.5s)
-        if (missedFramesRef.current > 30) {
-          setShowGestureGuide(true);
-        }
-
-        // Show distance warning after more missed frames (~1.5s)
         if (missedFramesRef.current > 90) {
           setShowDistanceWarning(true);
         }
@@ -322,9 +338,9 @@ export default function UserTryOn() {
     requestAnimationFrame(detectLoop);
   };
 
-  // ------------ LIVE TRY-ON ------------
+  // ---------------- LIVE TRY-ON TOGGLE ----------------
 
-  const startLiveTryOn = async () => {
+  const startLiveTryOn = () => {
     if (!selectedDress || !videoRef.current || !stream) {
       toast.error("Start camera and select a dress first.");
       return;
@@ -338,11 +354,11 @@ export default function UserTryOn() {
     setIsLiveTryOn(true);
     isLiveTryOnRef.current = true;
     setGestureMessage("");
-
-    // Reset helper UI when live starts
+    setCountdown(null);
+    overlayFrozenRef.current = false;
+    missedFramesRef.current = 0;
     setShowGestureGuide(true);
     setShowDistanceWarning(false);
-    missedFramesRef.current = 0;
 
     setShowPalmHint(true);
     setTimeout(() => setShowPalmHint(false), 4000);
@@ -354,12 +370,11 @@ export default function UserTryOn() {
   const stopLiveTryOn = () => {
     setIsLiveTryOn(false);
     isLiveTryOnRef.current = false;
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    isProcessingRef.current = false;
     setGestureMessage("");
-    // Keep guide off; it will show again when live restarts
+    setCountdown(null);
+    overlayFrozenRef.current = false;
+    setShowGestureGuide(false);
     setShowDistanceWarning(false);
-    missedFramesRef.current = 0;
   };
 
   const handleReset = () => {
@@ -367,12 +382,13 @@ export default function UserTryOn() {
     stopLiveTryOn();
     lastOverlayRef.current = null;
     if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
+      stream.getTracks().forEach((t) => t.stop());
       setStream(null);
     }
     setTryOnImage(null);
   };
 
+  // Manual capture button (no gesture)
   const handleCaptureTryOn = () => {
     if (!selectedDress) return toast.error("Select a dress first!");
     if (canvasRef.current && isLiveTryOn) {
@@ -390,13 +406,10 @@ export default function UserTryOn() {
     if (stream && selectedDress) {
       setIsLiveTryOn(true);
       isLiveTryOnRef.current = true;
-      setGestureMessage("");
-
-      // Reset helper UI
+      overlayFrozenRef.current = false;
+      missedFramesRef.current = 0;
       setShowGestureGuide(true);
       setShowDistanceWarning(false);
-      missedFramesRef.current = 0;
-
       animationRef.current = requestAnimationFrame(processFrame);
       startGestureDetection();
     }
@@ -462,27 +475,21 @@ export default function UserTryOn() {
     setUploading(false);
   };
 
+  // ---------------- UI ----------------
+
   return (
-    <div
-      className="
-        relative min-h-screen 
-        p-4 md:p-6 
-        pb-32
-        flex flex-col items-center 
-        overflow-x-hidden
-      "
-    >
+    <div className="relative min-h-screen p-4 md:p-6 pb-32 flex flex-col items-center overflow-x-hidden">
       {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-indigo-200 to-blue-200 opacity-50 -z-10"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-indigo-200 to-blue-200 opacity-50 -z-10" />
 
       {/* Header */}
-      <div className="text-center mb-8 relative bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white rounded-xl py-6 px-4 shadow-lg">
-        <h1 className="text-2xl md:text-4xl font-extrabold flex items-center justify-center gap-2 tracking-tight">
+      <div className="text-center mb-8 bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white rounded-xl py-6 px-4 shadow-lg">
+        <h1 className="text-2xl md:text-4xl font-extrabold flex items-center justify-center gap-2">
           <FaMagic />
           Virtual Try-On
           <FaRegEye />
         </h1>
-        <p className="mt-2 text-xs md:text-sm text-white/90 font-medium tracking-wide">
+        <p className="mt-2 text-xs md:text-sm text-white/90">
           Select • Size • Capture • Save
         </p>
       </div>
@@ -495,9 +502,12 @@ export default function UserTryOn() {
       </div>
 
       {/* MAIN */}
-      <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-6">
+      <div
+        ref={cameraSectionRef}
+        className="flex flex-col lg:flex-row w-full max-w-6xl gap-6"
+      >
         {/* Camera */}
-        <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden relative">
+        <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow bg-white overflow-hidden relative">
           <div className="relative w-full aspect-square bg-black">
             {/* Gesture message */}
             {gestureMessage && (
@@ -506,30 +516,36 @@ export default function UserTryOn() {
               </div>
             )}
 
+            {/* Palm hint */}
             {showPalmHint && !gestureMessage && (
-              <div
-                className="absolute top-14 left-1/2 -translate-x-1/2 
-                  bg-black/50 text-white px-4 py-2 rounded-xl text-sm 
-                  backdrop-blur-sm animate-pulse z-40"
-              >
+              <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-2 rounded-xl text-sm backdrop-blur-sm animate-pulse z-40">
                 ✋ Show your palm to capture
               </div>
             )}
 
-            {/* Gesture Helper UI - top right */}
+            {/* Big centered countdown */}
+            {countdown !== null && (
+              <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
+                <span className="text-white text-7xl md:text-8xl font-extrabold animate-pulse drop-shadow-lg">
+                  {countdown}
+                </span>
+              </div>
+            )}
+
+            {/* Gesture helper box (always during live) */}
             {isLiveTryOn && showGestureGuide && (
               <div className="absolute top-4 right-4 w-36 h-40 border-2 border-white/60 rounded-xl bg-black/30 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none z-40">
                 <p className="text-white/90 text-xs mb-2 font-medium">
                   Gesture Area
                 </p>
-                <div className="flex flex-col gap-2 items-start text-xs text-white/90">
+                <div className="flex flex-col gap-2 text-xs text-white/90">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">👍</span>
-                    <span>Next dress</span>
+                    <span>Next</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-lg">👎</span>
-                    <span>Previous dress</span>
+                    <span>Previous</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-lg">✋</span>
@@ -541,7 +557,7 @@ export default function UserTryOn() {
 
             {/* Distance warning */}
             {isLiveTryOn && showDistanceWarning && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-2 rounded-lg backdrop-blur-sm animate-pulse z-50 pointer-events-none">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-2 rounded-lg backdrop-blur-sm animate-pulse z-50">
                 Move your hand closer to the camera
               </div>
             )}
@@ -555,7 +571,6 @@ export default function UserTryOn() {
               className="absolute inset-0 w-full h-full object-cover"
               style={{
                 transform: "scaleX(-1)",
-                backgroundColor: "black",
                 display: stream && !tryOnImage ? "block" : "none",
               }}
             />
@@ -563,7 +578,7 @@ export default function UserTryOn() {
             {/* Overlay */}
             <canvas
               ref={canvasRef}
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              className="absolute inset-0 w-full h-full pointer-events-none object-cover"
               style={{
                 transform: "scaleX(-1)",
                 opacity: isLiveTryOn ? 1 : 0,
@@ -571,25 +586,54 @@ export default function UserTryOn() {
               }}
             />
 
-            {/* Final screenshot / placeholder */}
-            {tryOnImage ? (
+            {/* Final captured screenshot */}
+            {tryOnImage && (
               <img
                 src={tryOnImage}
                 className="absolute inset-0 w-full h-full object-contain"
               />
-            ) : (
-              !stream && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                  Your Try-On will appear here.
+            )}
+            {/* Glassmorphism Placeholder - DARK */}
+            {/* FULL-SURFACE Glassmorphism Placeholder */}
+            {!stream && !tryOnImage && (
+              <div
+                className="absolute inset-0 flex items-center justify-center z-20
+                  bg-gradient-to-br from-black/60 via-black/40 to-black/20
+                  backdrop-blur-xl object-cover"
+              >
+                {/* Floating gradients */}
+                <div className="absolute inset-0">
+                  <div className="absolute -top-10 -left-10 w-52 h-52 bg-purple-500/20 blur-3xl rounded-full"></div>
+                  <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-500/20 blur-3xl rounded-full"></div>
                 </div>
-              )
+
+                {/* Center content */}
+                <div className="relative flex flex-col items-center text-center px-4">
+                  <FaCamera className="text-white/90 text-6xl drop-shadow-[0_0_18px_rgba(255,255,255,0.25)] mb-6" />
+
+                  <h2 className="text-white font-semibold text-lg tracking-wide">
+                    Camera is Off
+                  </h2>
+
+                  <p className="text-gray-300 text-sm mt-1">
+                    Tap{" "}
+                    <span className="text-indigo-300 font-semibold">Start</span>{" "}
+                    to turn it on
+                  </p>
+
+                  <div className="mt-4 text-[11px] text-gray-400 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+                    <span>Privacy: Video is never stored</span>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>
 
         {/* Wardrobe */}
         <div className="w-full lg:w-1/2 flex flex-col gap-4">
-          <div className="w-full bg-white rounded-xl shadow p-3">
+          <div className="bg-white rounded-xl shadow p-3">
             {wardrobeItems.length > 0 ? (
               <CreativeCarousel
                 ref={carouselRef}
@@ -603,23 +647,42 @@ export default function UserTryOn() {
               </div>
             )}
           </div>
-
           {/* Size Picker */}
           {selectedDress && (
-            <div className="flex flex-wrap justify-center gap-3 mt-2">
-              {sizes.map((size) => (
-                <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`px-4 py-2 rounded-lg font-medium shadow transition ${
-                    selectedSize === size
-                      ? "bg-indigo-600 text-white"
-                      : "bg-white text-gray-700"
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
+            <div className="flex flex-col items-center mt-2 w-full">
+              {/* Size Buttons */}
+              <div className="flex flex-wrap justify-center gap-3">
+                {sizes.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`px-4 py-2 rounded-lg font-medium shadow transition ${
+                      selectedSize === size
+                        ? "bg-indigo-600 text-white"
+                        : "bg-white text-gray-700"
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+
+              {/* Soft Glow Aura (behind size buttons) */}
+              <div className="relative w-full h-10 mt-2 pointer-events-none">
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 top-[-20px]
+        w-48 h-48 bg-indigo-500/20 blur-3xl rounded-full"
+                ></div>
+              </div>
+
+              {/* Minimal Aesthetic Divider */}
+              <div className="w-full flex flex-col items-center mt-[-4px] mb-2">
+                <div className="w-24 h-[1px] bg-neutral-300 rounded-full"></div>
+
+                <p className="mt-2 text-[11px] text-neutral-500 tracking-wide">
+                  Immerse | Try | Capture
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -664,7 +727,7 @@ export default function UserTryOn() {
               </button>
             )}
 
-            {/* CAPTURE */}
+            {/* Manual Capture */}
             <button
               ref={captureButtonRef}
               onClick={handleCaptureTryOn}
@@ -676,7 +739,7 @@ export default function UserTryOn() {
               </span>
             </button>
 
-            {/* RESET */}
+            {/* Reset */}
             <button
               onClick={handleReset}
               className="flex flex-col items-center"
@@ -689,6 +752,7 @@ export default function UserTryOn() {
           </div>
         </div>
       ) : (
+        // After capture (Retake / Save)
         <div className="mt-6 w-full max-w-lg mx-auto">
           <div className="bg-white/95 backdrop-blur-xl shadow-lg rounded-2xl p-4 flex flex-col gap-3">
             <div className="flex w-full justify-between">
