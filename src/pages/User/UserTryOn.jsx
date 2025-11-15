@@ -38,7 +38,7 @@ export default function UserTryOn() {
 
   // Gesture / helper UI
   const [gestureMessage, setGestureMessage] = useState("");
-  const [showGestureGuide, setShowGestureGuide] = useState(false); // always during live
+  const [showGestureGuide, setShowGestureGuide] = useState(false);
   const [showDistanceWarning, setShowDistanceWarning] = useState(false);
 
   // Countdown 3→2→1
@@ -50,7 +50,7 @@ export default function UserTryOn() {
   const animationRef = useRef(null);
   const lastOverlayRef = useRef(null);
   const isProcessingRef = useRef(false);
-  const overlayFrozenRef = useRef(false); // 🔥 NEW: freeze backend calls during countdown
+  const overlayFrozenRef = useRef(false);
   const isLiveTryOnRef = useRef(false);
   const carouselRef = useRef(null);
   const selectedDressRef = useRef(null);
@@ -62,9 +62,9 @@ export default function UserTryOn() {
   const captureButtonRef = useRef(null);
   const cameraSectionRef = useRef(null);
 
+  // Scroll into view on mount
   useEffect(() => {
     if (cameraSectionRef.current) {
-      // small timeout ensures full layout rendered
       setTimeout(() => {
         cameraSectionRef.current.scrollIntoView({
           behavior: "smooth",
@@ -99,7 +99,7 @@ export default function UserTryOn() {
       if (items.length > 0 && !selectedDress) setSelectedDress(items[0]);
     };
     fetchWardrobe();
-  }, [user]);
+  }, [user, selectedDress]);
 
   // ---------------- LOAD HAND DETECTOR ----------------
 
@@ -127,7 +127,7 @@ export default function UserTryOn() {
     };
   }, [stream]);
 
-  // Sync selected dress with ref
+  // Sync selected dress with ref and reset overlay
   useEffect(() => {
     selectedDressRef.current = selectedDress || null;
     lastOverlayRef.current = null;
@@ -141,6 +141,7 @@ export default function UserTryOn() {
       const s = await navigator.mediaDevices.getUserMedia({ video: true });
       setStream(s);
 
+      // Wait until video element exists
       await new Promise((resolve) => {
         const check = setInterval(() => {
           if (videoRef.current) {
@@ -150,8 +151,10 @@ export default function UserTryOn() {
         }, 100);
       });
 
-      videoRef.current.srcObject = s;
-      await videoRef.current.play();
+      if (videoRef.current) {
+        videoRef.current.srcObject = s;
+        await videoRef.current.play();
+      }
 
       setHighlightLive(true);
       setTimeout(() => setHighlightLive(false), 4000);
@@ -189,7 +192,7 @@ export default function UserTryOn() {
 
     const currentDress = selectedDressRef.current;
 
-    // 🔥 KEY PART: DO NOT CALL BACKEND WHEN OVERLAY IS FROZEN (countdown)
+    // Don't call backend when overlay is frozen (during countdown)
     if (
       !overlayFrozenRef.current &&
       !isProcessingRef.current &&
@@ -237,7 +240,6 @@ export default function UserTryOn() {
   // ---------------- COUNTDOWN + FREEZE OVERLAY ----------------
 
   const startCountdownCapture = () => {
-    // ⛔ Stop backend updates but keep video moving
     overlayFrozenRef.current = true;
     setGestureMessage("✋ Hold still...");
     setCountdown(3);
@@ -250,8 +252,6 @@ export default function UserTryOn() {
         setCountdown(null);
         setGestureMessage("");
 
-        // At this point: video is on, overlay is frozen.
-        // Capture current canvas frame as final image
         const canvas = canvasRef.current;
         if (canvas) {
           const url = canvas.toDataURL("image/png");
@@ -274,7 +274,6 @@ export default function UserTryOn() {
     lastGestureTimeRef.current = now;
 
     if (g === "CAPTURE") {
-      // Start 3-2-1 timer & freeze overlay
       startCountdownCapture();
       return;
     }
@@ -478,27 +477,40 @@ export default function UserTryOn() {
   // ---------------- UI ----------------
 
   return (
-    <div className="relative min-h-screen p-4 md:p-6 pb-32 flex flex-col items-center overflow-x-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-indigo-200 to-blue-200 opacity-50 -z-10" />
+    <div className="relative min-h-screen pb-32 px-4 md:px-6 pt-6 flex flex-col items-center overflow-x-hidden">
+      {/* Premium Background */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100" />
+        <div className="absolute -top-24 -left-24 w-72 h-72 bg-purple-300/30 rounded-full blur-3xl" />
+        <div className="absolute top-1/3 -right-16 w-64 h-64 bg-indigo-300/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-blue-300/20 rounded-full blur-3xl" />
+      </div>
 
       {/* Header */}
-      <div className="text-center mb-8 bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white rounded-xl py-6 px-4 shadow-lg">
-        <h1 className="text-2xl md:text-4xl font-extrabold flex items-center justify-center gap-2">
-          <FaMagic />
-          Virtual Try-On
-          <FaRegEye />
-        </h1>
-        <p className="mt-2 text-xs md:text-sm text-white/90">
-          Select • Size • Capture • Save
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center gap-3 bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white px-8 py-4 rounded-2xl shadow-2xl">
+          <FaMagic className="w-5 h-5 animate-pulse" />
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+            Virtual Try-On Studio
+          </h1>
+          <FaRegEye className="w-5 h-5" />
+        </div>
+        <p className="mt-3 text-xs md:text-sm text-slate-600 font-medium">
+          Select • Gesture Control • Capture • Save
         </p>
       </div>
 
-      {/* Try-on count */}
-      <div className="mb-6 bg-white shadow-md rounded-full px-6 py-2">
-        <span className="font-semibold text-gray-700">
-          Free Try-Ons Left: {freeTryonsLeft}
-        </span>
+      {/* Try-on counter */}
+      <div className="mb-6 flex justify-center">
+        <div className="bg-white/70 backdrop-blur-md border border-purple-100 shadow-lg rounded-full px-6 py-2 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-sm font-semibold text-slate-700">
+            Free Try-Ons Remaining:
+          </span>
+          <span className="text-lg font-bold text-purple-700">
+            {freeTryonsLeft}
+          </span>
+        </div>
       </div>
 
       {/* MAIN */}
@@ -506,184 +518,255 @@ export default function UserTryOn() {
         ref={cameraSectionRef}
         className="flex flex-col lg:flex-row w-full max-w-6xl gap-6"
       >
-        {/* Camera */}
-        <div
-          className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow bg-white overflow-hidden relative flex items-center justify-center
-"
-        >
-          <div className="relative w-full aspect-square bg-black">
-            {/* Gesture message */}
-            {gestureMessage && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-xl text-sm z-50">
-                {gestureMessage}
-              </div>
-            )}
-
-            {/* Palm hint */}
-            {showPalmHint && !gestureMessage && (
-              <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-black/50 text-white px-4 py-2 rounded-xl text-sm backdrop-blur-sm animate-pulse z-40">
-                ✋ Show your palm to capture
-              </div>
-            )}
-
-            {/* Big centered countdown */}
-            {countdown !== null && (
-              <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
-                <span className="text-white text-7xl md:text-8xl font-extrabold animate-pulse drop-shadow-lg">
-                  {countdown}
+        {/* Camera Panel */}
+        <div className="w-full lg:w-1/2">
+          <div className="rounded-3xl overflow-hidden relative w-full h-full">
+            {/* Camera Header */}
+            <div className="absolute top-0 left-0 right-0 px-4 py-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 flex items-center justify-between z-30">
+              <div className="flex items-center gap-2">
+                <FaCamera className="w-4 h-4 text-purple-300" />
+                <span className="text-xs font-semibold text-white">
+                  Live Camera Feed
                 </span>
               </div>
-            )}
-
-            {/* Gesture helper box (always during live) */}
-            {isLiveTryOn && showGestureGuide && (
-              <div className="absolute top-4 right-4 w-36 h-40 border-2 border-white/60 rounded-xl bg-black/30 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none z-40">
-                <p className="text-white/90 text-xs mb-2 font-medium">
-                  Gesture Area
-                </p>
-                <div className="flex flex-col gap-2 text-xs text-white/90">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">👍</span>
-                    <span>Next</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">👎</span>
-                    <span>Previous</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">✋</span>
-                    <span>Capture</span>
-                  </div>
+              {stream && (
+                <div className="flex items-center gap-2 text-[10px] text-emerald-400">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span>LIVE</span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Distance warning */}
-            {isLiveTryOn && showDistanceWarning && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-2 rounded-lg backdrop-blur-sm animate-pulse z-50">
-                Move your hand closer to the camera
-              </div>
-            )}
-
-            {/* Video */}
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{
-                transform: "scaleX(-1)",
-                display: stream && !tryOnImage ? "block" : "none",
-              }}
-            />
-
-            {/* Overlay */}
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full pointer-events-none object-cover"
-              style={{
-                transform: "scaleX(-1)",
-                opacity: isLiveTryOn ? 1 : 0,
-                transition: "opacity 0.2s ease",
-              }}
-            />
-
-            {/* Final captured screenshot */}
-            {tryOnImage && (
-              <img
-                src={tryOnImage}
-                className="absolute inset-0 w-full h-full object-contain"
-              />
-            )}
-            {/* Glassmorphism Placeholder - DARK */}
-            {/* FULL-SURFACE Glassmorphism Placeholder */}
-            {!stream && !tryOnImage && (
-              <div
-                className="absolute inset-0 flex items-center justify-center z-20
-                  bg-gradient-to-br from-black/60 via-black/40 to-black/20
-                  backdrop-blur-xl object-cover"
-              >
-                {/* Floating gradients */}
-                <div className="absolute inset-0">
-                  <div className="absolute -top-10 -left-10 w-52 h-52 bg-purple-500/20 blur-3xl rounded-full"></div>
-                  <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-500/20 blur-3xl rounded-full"></div>
+            {/* Inner camera box (no grey outline) */}
+            <div className="relative w-full aspect-square bg-black rounded-2xl overflow-hidden shadow-2xl">
+              {/* Gesture message */}
+              {gestureMessage && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-xl text-sm z-50 backdrop-blur-sm shadow-lg">
+                  {gestureMessage}
                 </div>
+              )}
 
-                {/* Center content */}
-                <div className="relative flex flex-col items-center text-center px-4">
-                  <FaCamera className="text-white/90 text-6xl drop-shadow-[0_0_18px_rgba(255,255,255,0.25)] mb-6" />
+              {/* Palm hint */}
+              {showPalmHint && !gestureMessage && (
+                <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-purple-600/90 text-white px-4 py-2 rounded-xl text-xs backdrop-blur-sm animate-bounce z-40 shadow-lg">
+                  ✋ Show your palm to capture
+                </div>
+              )}
 
-                  <h2 className="text-white font-semibold text-lg tracking-wide">
-                    Camera is Off
-                  </h2>
+              {/* Big centered countdown */}
+              {countdown !== null && (
+                <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none bg-black/40 backdrop-blur-xs">
+                  <span className="text-white text-7xl md:text-8xl font-extrabold animate-pulse drop-shadow-[0_0_22px_rgba(0,0,0,0.7)]">
+                    {countdown}
+                  </span>
+                </div>
+              )}
 
-                  <p className="text-gray-300 text-sm mt-1">
-                    Tap{" "}
-                    <span className="text-indigo-300 font-semibold">Start</span>{" "}
-                    to turn it on
+              {/* Gesture helper box */}
+              {isLiveTryOn && showGestureGuide && (
+                <div
+                  className="
+      absolute 
+      right-2 
+      top-12
+      
+      /* Sizes */
+      w-28 px-2 py-2      /* Mobile */
+      sm:w-32 sm:px-3 sm:py-2.5   /* Tablets */
+      md:w-40 md:px-3 md:py-3     /* Desktop */
+
+      border border-white/30 
+      rounded-2xl 
+      bg-black/40 
+      backdrop-blur-md 
+      flex flex-col 
+      items-center 
+      pointer-events-none 
+      z-40 
+      shadow-xl
+    "
+                >
+                  <p className="text-white/90 text-[8px] sm:text-[9px] md:text-[10px] mb-1 md:mb-2 font-semibold tracking-wide">
+                    Gesture Controls
                   </p>
 
-                  <div className="mt-4 text-[11px] text-gray-400 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
-                    <span>Privacy: Video is never stored</span>
+                  <div className="flex flex-col gap-1 sm:gap-1.5 text-[9px] sm:text-[10px] md:text-xs text-white/90">
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <span className="text-sm sm:text-base md:text-lg">
+                        👍
+                      </span>
+                      <span>Next</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <span className="text-sm sm:text-base md:text-lg">
+                        👎
+                      </span>
+                      <span>Prev</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <span className="text-sm sm:text-base md:text-lg">
+                        ✋
+                      </span>
+                      <span>Capture</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* Distance warning */}
+              {isLiveTryOn && showDistanceWarning && (
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-amber-500/95 text-white text-xs px-3 py-2 rounded-lg backdrop-blur-sm animate-pulse z-50 shadow-lg">
+                  Move your hand closer to the camera
+                </div>
+              )}
+
+              {/* Video */}
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-cover"
+                style={{
+                  transform: "scaleX(-1)",
+                  display: stream && !tryOnImage ? "block" : "none",
+                }}
+              />
+
+              {/* Overlay */}
+              <canvas
+                ref={canvasRef}
+                className="absolute inset-0 w-full h-full pointer-events-none object-cover"
+                style={{
+                  transform: "scaleX(-1)",
+                  opacity: isLiveTryOn ? 1 : 0,
+                  transition: "opacity 0.2s ease",
+                }}
+              />
+
+              {/* Final captured screenshot */}
+              {tryOnImage && (
+                <img
+                  src={tryOnImage}
+                  className="absolute inset-0 w-full h-full object-contain bg-black"
+                  alt="Captured try-on"
+                />
+              )}
+
+              {/* Glassmorphism Placeholder */}
+              {!stream && !tryOnImage && (
+                <div className="absolute inset-0 flex items-center justify-center z-20 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 backdrop-blur-xl">
+                  {/* Floating gradients */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="absolute -top-10 -left-10 w-52 h-52 bg-purple-500/20 blur-3xl rounded-full" />
+                    <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-500/20 blur-3xl rounded-full" />
+                  </div>
+
+                  {/* Center content */}
+                  <div className="relative flex flex-col items-center text-center px-4">
+                    <FaCamera className="text-white/90 text-6xl drop-shadow-[0_0_18px_rgba(255,255,255,0.25)] mb-5" />
+                    <h2 className="text-white font-semibold text-lg tracking-wide">
+                      Camera is Off
+                    </h2>
+                    <p className="text-gray-300 text-sm mt-1">
+                      Tap{" "}
+                      <span className="text-indigo-300 font-semibold">
+                        Start
+                      </span>{" "}
+                      to begin your try-on session
+                    </p>
+                    <div className="mt-4 text-[11px] text-gray-400 flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      <span>Privacy: Video is never stored</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Wardrobe */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-4">
-          <div className="bg-white rounded-xl shadow p-3">
-            {wardrobeItems.length > 0 ? (
-              <CreativeCarousel
-                ref={carouselRef}
-                items={wardrobeItems}
-                selectedItem={selectedDress}
-                onSelect={setSelectedDress}
-              />
-            ) : (
-              <div className="flex items-center justify-center h-52 text-gray-500 text-center px-4">
-                Add items in cart first
-              </div>
-            )}
+        {/* Wardrobe + Size Panel */}
+        <div className="w-full lg:w-1/2 flex flex-col gap-5">
+          {/* Carousel container with premium glass */}
+          <div className="bg-white/75 backdrop-blur-xl rounded-3xl border border-white/60 shadow-xl relative">
+            {/* Soft glow behind carousel */}
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-64 h-32 bg-indigo-300/30 blur-3xl" />
+            </div>
+
+            <div
+              className="px-4 py-3 flex items-center justify-between 
+                bg-gradient-to-r from-purple-600 to-indigo-600 
+                rounded-t-3xl shadow-sm"
+            >
+              <h3 className="text-sm font-semibold text-white tracking-wide">
+                Your Wardrobe
+              </h3>
+              {wardrobeItems.length > 0 && (
+                <span className="text-[11px] text-white">
+                  {wardrobeItems.length} item
+                  {wardrobeItems.length > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+
+            <div className="pt-2 pb-5">
+              {wardrobeItems.length > 0 ? (
+                <CreativeCarousel
+                  ref={carouselRef}
+                  items={wardrobeItems}
+                  selectedItem={selectedDress}
+                  onSelect={setSelectedDress}
+                  hideNames={true}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-52 text-gray-500 text-center px-6">
+                  <div>
+                    <p className="font-medium text-sm">
+                      No items in your wardrobe yet
+                    </p>
+                    <p className="text-xs mt-1 text-gray-400">
+                      Add outfits from your cart to try them virtually
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
           {/* Size Picker */}
           {selectedDress && (
-            <div className="flex flex-col items-center mt-2 w-full">
-              {/* Size Buttons */}
+            <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white/60 shadow-xl flex flex-col items-center px-6 py-5">
+              <h4 className="text-sm font-semibold text-slate-800 mb-4 tracking-wide">
+                Select Size
+              </h4>
+
               <div className="flex flex-wrap justify-center gap-3">
                 {sizes.map((size) => (
                   <button
                     key={size}
                     onClick={() => setSelectedSize(size)}
-                    className={`px-4 py-2 rounded-lg font-medium shadow transition ${
-                      selectedSize === size
-                        ? "bg-indigo-600 text-white"
-                        : "bg-white text-gray-700"
-                    }`}
+                    className={`w-12 h-12 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center justify-center
+                      ${
+                        selectedSize === size
+                          ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg scale-110"
+                          : "bg-white text-slate-700 border border-slate-200 hover:border-purple-300 hover:bg-purple-50"
+                      }`}
                   >
                     {size}
                   </button>
                 ))}
               </div>
 
-              {/* Soft Glow Aura (behind size buttons) */}
-              <div className="relative w-full h-10 mt-2 pointer-events-none">
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 top-[-20px]
-        w-48 h-48 bg-indigo-500/20 blur-3xl rounded-full"
-                ></div>
-              </div>
-
-              {/* Minimal Aesthetic Divider */}
-              <div className="w-full flex flex-col items-center mt-[-4px] mb-2">
-                <div className="w-24 h-[1px] bg-neutral-300 rounded-full"></div>
-
-                <p className="mt-2 text-[11px] text-neutral-500 tracking-wide">
-                  Immerse | Try | Capture
+              {/* Aura + Divider */}
+              <div className="relative w-full mt-5 flex flex-col items-center">
+                <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-40 h-16 bg-purple-400/25 blur-3xl rounded-full pointer-events-none" />
+                <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-slate-300 to-transparent rounded-full" />
+                <p className="mt-3 text-[11px] text-slate-500 tracking-[0.18em] uppercase">
+                  Immerse • Try • Capture
                 </p>
               </div>
             </div>
@@ -694,37 +777,43 @@ export default function UserTryOn() {
       {/* ACTION BAR */}
       {!tryOnImage ? (
         <div className="mt-6 w-full max-w-lg mx-auto">
-          <div className="bg-white/90 backdrop-blur-xl shadow-lg rounded-2xl p-4 flex items-center justify-around">
-            {/* CAMERA START */}
+          <div className="bg-white/90 backdrop-blur-2xl shadow-2xl rounded-2xl px-6 py-4 flex items-center justify-around border border-white/60">
+            {/* CAMERA START / LIVE / STOP */}
             {!stream ? (
               <button
                 onClick={startWebcam}
-                className="flex flex-col items-center"
+                className="flex flex-col items-center group"
               >
-                <FaCamera className="text-2xl text-blue-600" />
-                <span className="text-xs font-medium mt-1 text-blue-700">
+                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-blue-50 border border-blue-200 group-hover:bg-blue-100 transition">
+                  <FaCamera className="text-xl text-blue-600" />
+                </div>
+                <span className="text-[11px] font-medium mt-1 text-blue-700">
                   Start
                 </span>
               </button>
             ) : !isLiveTryOn ? (
               <button
                 onClick={startLiveTryOn}
-                className={`flex flex-col items-center relative ${
-                  highlightLive ? "live-ripple" : ""
+                className={`flex flex-col items-center group ${
+                  highlightLive ? "animate-pulse" : ""
                 }`}
               >
-                <FaMagic className="text-2xl text-purple-600" />
-                <span className="text-xs font-medium mt-1 text-purple-700">
+                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-purple-50 border border-purple-200 group-hover:bg-purple-100 transition">
+                  <FaMagic className="text-xl text-purple-600" />
+                </div>
+                <span className="text-[11px] font-medium mt-1 text-purple-700">
                   Live
                 </span>
               </button>
             ) : (
               <button
                 onClick={stopLiveTryOn}
-                className="flex flex-col items-center"
+                className="flex flex-col items-center group"
               >
-                <FaStop className="text-2xl text-red-600" />
-                <span className="text-xs font-medium mt-1 text-red-700">
+                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-red-50 border border-red-200 group-hover:bg-red-100 transition">
+                  <FaStop className="text-xl text-red-600" />
+                </div>
+                <span className="text-[11px] font-medium mt-1 text-red-700">
                   Stop
                 </span>
               </button>
@@ -734,10 +823,12 @@ export default function UserTryOn() {
             <button
               ref={captureButtonRef}
               onClick={handleCaptureTryOn}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center group"
             >
-              <FaRegEye className="text-2xl text-green-600" />
-              <span className="text-xs font-medium mt-1 text-green-700">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center bg-emerald-50 border border-emerald-200 group-hover:bg-emerald-100 transition">
+                <FaRegEye className="text-xl text-emerald-600" />
+              </div>
+              <span className="text-[11px] font-medium mt-1 text-emerald-700">
                 Capture
               </span>
             </button>
@@ -745,10 +836,12 @@ export default function UserTryOn() {
             {/* Reset */}
             <button
               onClick={handleReset}
-              className="flex flex-col items-center"
+              className="flex flex-col items-center group"
             >
-              <FaCamera className="text-xl rotate-180 text-gray-600" />
-              <span className="text-xs font-medium mt-1 text-gray-700">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
+                <FaCamera className="text-lg rotate-180 text-slate-600" />
+              </div>
+              <span className="text-[11px] font-medium mt-1 text-slate-700">
                 Reset
               </span>
             </button>
@@ -757,11 +850,11 @@ export default function UserTryOn() {
       ) : (
         // After capture (Retake / Save)
         <div className="mt-6 w-full max-w-lg mx-auto">
-          <div className="bg-white/95 backdrop-blur-xl shadow-lg rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex w-full justify-between">
+          <div className="bg-white/95 backdrop-blur-2xl shadow-2xl rounded-2xl p-5 border border-white/60 flex flex-col gap-3">
+            <div className="flex w-full justify-between gap-3">
               <button
                 onClick={handleRetake}
-                className="w-[48%] py-2 bg-orange-500 text-white rounded-lg font-medium"
+                className="w-1/2 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition"
               >
                 Retake
               </button>
@@ -769,20 +862,25 @@ export default function UserTryOn() {
               <button
                 onClick={handleUploadTryOn}
                 disabled={uploading}
-                className="w-[48%] py-2 bg-blue-600 text-white rounded-lg font-medium"
+                className="w-1/2 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {uploading ? "Uploading..." : "Save"}
+                {uploading ? "Uploading..." : "Save Try-On"}
               </button>
             </div>
 
-            <label className="flex items-center gap-2 text-gray-700 text-sm font-medium">
+            <label className="flex items-center gap-2 text-gray-700 text-sm font-medium mt-1 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isPublic}
                 onChange={(e) => setIsPublic(e.target.checked)}
-                className="w-4 h-4"
+                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
               />
-              Make Public + Earn Reward
+              <span>
+                Make this try-on public{" "}
+                <span className="text-purple-600 font-semibold">
+                  + Earn 1 free try-on
+                </span>
+              </span>
             </label>
           </div>
         </div>
