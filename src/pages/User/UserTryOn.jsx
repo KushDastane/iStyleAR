@@ -51,6 +51,11 @@ export default function UserTryOn() {
   const detectorRef = useRef(null);
   const lastGestureTimeRef = useRef(0); // throttle gestures
 
+  // NEW: Gesture helper UI state
+  const [showGestureGuide, setShowGestureGuide] = useState(true);
+  const [showDistanceWarning, setShowDistanceWarning] = useState(false);
+  const missedFramesRef = useRef(0);
+
   // Capture Button Ref
   const captureButtonRef = useRef(null);
 
@@ -231,11 +236,18 @@ export default function UserTryOn() {
     if (now - lastGestureTimeRef.current < 2500) return;
     lastGestureTimeRef.current = now;
 
-    if (g === "CAPTURE") {
-      setGestureMessage("✋ Capturing...");
-      triggerCaptureButton();
-      return;
-    }
+   if (g === "CAPTURE") {
+     setGestureMessage("✋ Capturing...");
+
+     // small delay so user can move hand away
+     setTimeout(() => {
+       setGestureMessage("");
+       triggerCaptureButton();
+     }, 450); // 250ms delay
+
+     return;
+   }
+
 
     if (!wardrobeItems.length || !selectedDressRef.current) return;
 
@@ -281,7 +293,27 @@ export default function UserTryOn() {
       const gesture = detectGesture(results?.landmarks);
 
       if (gesture) {
+        missedFramesRef.current = 0;
+        setShowDistanceWarning(false);
+
+        // ❗ Only hide guide on first gesture after Live starts
+        if (!gestureMessage) {
+          setShowGestureGuide(false);
+        }
+
         handleGesture(gesture);
+      } else {
+        missedFramesRef.current += 1;
+
+        // Show guide after some missed frames (~0.5s)
+        if (missedFramesRef.current > 30) {
+          setShowGestureGuide(true);
+        }
+
+        // Show distance warning after more missed frames (~1.5s)
+        if (missedFramesRef.current > 90) {
+          setShowDistanceWarning(true);
+        }
       }
 
       requestAnimationFrame(detectLoop);
@@ -307,6 +339,11 @@ export default function UserTryOn() {
     isLiveTryOnRef.current = true;
     setGestureMessage("");
 
+    // Reset helper UI when live starts
+    setShowGestureGuide(true);
+    setShowDistanceWarning(false);
+    missedFramesRef.current = 0;
+
     setShowPalmHint(true);
     setTimeout(() => setShowPalmHint(false), 4000);
 
@@ -320,6 +357,9 @@ export default function UserTryOn() {
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     isProcessingRef.current = false;
     setGestureMessage("");
+    // Keep guide off; it will show again when live restarts
+    setShowDistanceWarning(false);
+    missedFramesRef.current = 0;
   };
 
   const handleReset = () => {
@@ -351,6 +391,12 @@ export default function UserTryOn() {
       setIsLiveTryOn(true);
       isLiveTryOnRef.current = true;
       setGestureMessage("");
+
+      // Reset helper UI
+      setShowGestureGuide(true);
+      setShowDistanceWarning(false);
+      missedFramesRef.current = 0;
+
       animationRef.current = requestAnimationFrame(processFrame);
       startGestureDetection();
     }
@@ -467,6 +513,36 @@ export default function UserTryOn() {
                   backdrop-blur-sm animate-pulse z-40"
               >
                 ✋ Show your palm to capture
+              </div>
+            )}
+
+            {/* Gesture Helper UI - top right */}
+            {isLiveTryOn && showGestureGuide && (
+              <div className="absolute top-4 right-4 w-36 h-40 border-2 border-white/60 rounded-xl bg-black/30 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none z-40">
+                <p className="text-white/90 text-xs mb-2 font-medium">
+                  Gesture Area
+                </p>
+                <div className="flex flex-col gap-2 items-start text-xs text-white/90">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">👍</span>
+                    <span>Next dress</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">👎</span>
+                    <span>Previous dress</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">✋</span>
+                    <span>Capture</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Distance warning */}
+            {isLiveTryOn && showDistanceWarning && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-2 rounded-lg backdrop-blur-sm animate-pulse z-50 pointer-events-none">
+                Move your hand closer to the camera
               </div>
             )}
 
