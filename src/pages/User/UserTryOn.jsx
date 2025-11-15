@@ -488,28 +488,27 @@ export default function UserTryOn() {
 
       {/* Header */}
       <div className="text-center mb-8">
-  <div 
-    className="
+        <div
+          className="
       inline-flex items-center gap-4 
       bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700
       text-white px-10 py-5 rounded-2xl shadow-xl
       backdrop-blur-sm
     "
-  >
-    <FaMagic className="w-6 h-6 animate-pulse" />
+        >
+          <FaMagic className="w-6 h-6 animate-pulse" />
 
-    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-      Virtual Try-On Studio
-    </h1>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+            Virtual Try-On Studio
+          </h1>
 
-    <FaRegEye className="w-6 h-6 opacity-90" />
-  </div>
+          <FaRegEye className="w-6 h-6 opacity-90" />
+        </div>
 
-  <p className="mt-3 text-sm md:text-base text-slate-600 font-medium">
-    Select • Gesture Control • Capture • Save
-  </p>
-</div>
-
+        <p className="mt-3 text-sm md:text-base text-slate-600 font-medium">
+          Select • Gesture Control • Capture • Save
+        </p>
+      </div>
 
       {/* Try-on counter */}
       <div className="mb-6 flex justify-center">
@@ -527,11 +526,11 @@ export default function UserTryOn() {
       {/* MAIN */}
       <div
         ref={cameraSectionRef}
-        className="flex flex-col lg:flex-row w-full max-w-6xl gap-6"
+        className="grid grid-cols-1 lg:grid-cols-2 items-start w-full max-w-6xl gap-6"
       >
         {/* Camera Panel */}
-        <div className="w-full lg:w-1/2">
-          <div className="rounded-3xl overflow-hidden relative w-full h-full">
+        <div className="w-full order-1">
+          <div className="rounded-3xl overflow-hidden relative w-full">
             {/* Camera Header */}
             <div className="absolute top-0 left-0 right-0 px-4 py-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 flex items-center justify-between z-30">
               <div className="flex items-center gap-2">
@@ -700,7 +699,7 @@ export default function UserTryOn() {
         </div>
 
         {/* Wardrobe + Size Panel */}
-        <div className="w-full lg:w-1/2 flex flex-col gap-5">
+        <div className="w-full flex flex-col gap-5 order-3 lg:order-2">
           {/* Carousel container with premium glass */}
           <div className="bg-white/75 backdrop-blur-xl rounded-3xl border border-white/60 shadow-xl relative">
             {/* Soft glow behind carousel */}
@@ -783,119 +782,121 @@ export default function UserTryOn() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* ACTION BAR */}
-      {!tryOnImage ? (
-        <div className="mt-6 w-full max-w-lg mx-auto">
-          <div className="bg-white/90 backdrop-blur-2xl shadow-2xl rounded-2xl px-6 py-4 flex items-center justify-around border border-white/60">
-            {/* CAMERA START / LIVE / STOP */}
-            {!stream ? (
-              <button
-                onClick={startWebcam}
-                className="flex flex-col items-center group"
-              >
-                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-blue-50 border border-blue-200 group-hover:bg-blue-100 transition">
-                  <FaCamera className="text-xl text-blue-600" />
-                </div>
-                <span className="text-[11px] font-medium mt-1 text-blue-700">
-                  Start
-                </span>
-              </button>
-            ) : !isLiveTryOn ? (
-              <button
-                onClick={startLiveTryOn}
-                className={`flex flex-col items-center group ${
-                  highlightLive ? "animate-pulse" : ""
-                }`}
-              >
-                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-purple-50 border border-purple-200 group-hover:bg-purple-100 transition">
-                  <FaMagic className="text-xl text-purple-600" />
-                </div>
-                <span className="text-[11px] font-medium mt-1 text-purple-700">
-                  Live
-                </span>
-              </button>
-            ) : (
-              <button
-                onClick={stopLiveTryOn}
-                className="flex flex-col items-center group"
-              >
-                <div className="w-11 h-11 rounded-full flex items-center justify-center bg-red-50 border border-red-200 group-hover:bg-red-100 transition">
-                  <FaStop className="text-xl text-red-600" />
-                </div>
-                <span className="text-[11px] font-medium mt-1 text-red-700">
-                  Stop
-                </span>
-              </button>
-            )}
+        {/* ACTION BAR */}
+        <div className="order-2 lg:order-3 lg:col-span-2">
+          {!tryOnImage ? (
+            <div className="mt-6 w-full max-w-lg mx-auto">
+              <div className="bg-white/90 backdrop-blur-2xl shadow-2xl rounded-2xl px-6 py-4 flex items-center justify-around border border-white/60">
+                {/* CAMERA START / LIVE / STOP */}
+                {!stream ? (
+                  <button
+                    onClick={startWebcam}
+                    className="flex flex-col items-center group"
+                  >
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center bg-blue-50 border border-blue-200 group-hover:bg-blue-100 transition">
+                      <FaCamera className="text-xl text-blue-600" />
+                    </div>
+                    <span className="text-[11px] font-medium mt-1 text-blue-700">
+                      Start
+                    </span>
+                  </button>
+                ) : !isLiveTryOn ? (
+                  <button
+                    onClick={startLiveTryOn}
+                    className={`flex flex-col items-center group ${
+                      highlightLive ? "animate-pulse" : ""
+                    }`}
+                  >
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center bg-purple-50 border border-purple-200 group-hover:bg-purple-100 transition">
+                      <FaMagic className="text-xl text-purple-600" />
+                    </div>
+                    <span className="text-[11px] font-medium mt-1 text-purple-700">
+                      Live
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={stopLiveTryOn}
+                    className="flex flex-col items-center group"
+                  >
+                    <div className="w-11 h-11 rounded-full flex items-center justify-center bg-red-50 border border-red-200 group-hover:bg-red-100 transition">
+                      <FaStop className="text-xl text-red-600" />
+                    </div>
+                    <span className="text-[11px] font-medium mt-1 text-red-700">
+                      Stop
+                    </span>
+                  </button>
+                )}
 
-            {/* Manual Capture */}
-            <button
-              ref={captureButtonRef}
-              onClick={handleCaptureTryOn}
-              className="flex flex-col items-center group"
-            >
-              <div className="w-11 h-11 rounded-full flex items-center justify-center bg-emerald-50 border border-emerald-200 group-hover:bg-emerald-100 transition">
-                <FaRegEye className="text-xl text-emerald-600" />
+                {/* Manual Capture */}
+                <button
+                  ref={captureButtonRef}
+                  onClick={handleCaptureTryOn}
+                  className="flex flex-col items-center group"
+                >
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center bg-emerald-50 border border-emerald-200 group-hover:bg-emerald-100 transition">
+                    <FaRegEye className="text-xl text-emerald-600" />
+                  </div>
+                  <span className="text-[11px] font-medium mt-1 text-emerald-700">
+                    Capture
+                  </span>
+                </button>
+
+                {/* Reset */}
+                <button
+                  onClick={handleReset}
+                  className="flex flex-col items-center group"
+                >
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
+                    <FaCamera className="text-lg rotate-180 text-slate-600" />
+                  </div>
+                  <span className="text-[11px] font-medium mt-1 text-slate-700">
+                    Reset
+                  </span>
+                </button>
               </div>
-              <span className="text-[11px] font-medium mt-1 text-emerald-700">
-                Capture
-              </span>
-            </button>
-
-            {/* Reset */}
-            <button
-              onClick={handleReset}
-              className="flex flex-col items-center group"
-            >
-              <div className="w-11 h-11 rounded-full flex items-center justify-center bg-slate-50 border border-slate-200 group-hover:bg-slate-100 transition">
-                <FaCamera className="text-lg rotate-180 text-slate-600" />
-              </div>
-              <span className="text-[11px] font-medium mt-1 text-slate-700">
-                Reset
-              </span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        // After capture (Retake / Save)
-        <div className="mt-6 w-full max-w-lg mx-auto">
-          <div className="bg-white/95 backdrop-blur-2xl shadow-2xl rounded-2xl p-5 border border-white/60 flex flex-col gap-3">
-            <div className="flex w-full justify-between gap-3">
-              <button
-                onClick={handleRetake}
-                className="w-1/2 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition"
-              >
-                Retake
-              </button>
-
-              <button
-                onClick={handleUploadTryOn}
-                disabled={uploading}
-                className="w-1/2 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {uploading ? "Uploading..." : "Save Try-On"}
-              </button>
             </div>
+          ) : (
+            // After capture (Retake / Save)
+            <div className="mt-6 w-full max-w-lg mx-auto">
+              <div className="bg-white/95 backdrop-blur-2xl shadow-2xl rounded-2xl p-5 border border-white/60 flex flex-col gap-3">
+                <div className="flex w-full justify-between gap-3">
+                  <button
+                    onClick={handleRetake}
+                    className="w-1/2 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition"
+                  >
+                    Retake
+                  </button>
 
-            <label className="flex items-center gap-2 text-gray-700 text-sm font-medium mt-1 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e) => setIsPublic(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-              />
-              <span>
-                Make this try-on public{" "}
-                <span className="text-purple-600 font-semibold">
-                  + Earn 1 free try-on
-                </span>
-              </span>
-            </label>
-          </div>
+                  <button
+                    onClick={handleUploadTryOn}
+                    disabled={uploading}
+                    className="w-1/2 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold text-sm shadow-md hover:shadow-lg transition disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {uploading ? "Uploading..." : "Save Try-On"}
+                  </button>
+                </div>
+
+                <label className="flex items-center gap-2 text-gray-700 text-sm font-medium mt-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isPublic}
+                    onChange={(e) => setIsPublic(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span>
+                    Make this try-on public{" "}
+                    <span className="text-purple-600 font-semibold">
+                      + Earn 1 free try-on
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
