@@ -189,34 +189,64 @@ export default function VirtualWardrobe() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-white to-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        {/* HEADER — IKEA CLEAN */}
-        <div className="mb-8 bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex gap-2">
-                <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
-                  My Wardrobe
-                </h1>
-                <GiClothes className="text-2xl mt-2.5" />
-              </div>
-              <p className="text-gray-500">
-                {wardrobe.length} {wardrobe.length === 1 ? "item" : "items"}{" "}
-                organized neatly
-              </p>
+        {/* HEADER — REFINED SCANDINAVIAN DESIGN */}
+        <div
+          className="
+    mb-10 relative overflow-hidden rounded-2xl
+    border border-gray-200 shadow-md p-10
+    bg-[url('/textures/soft-wood.png')] bg-cover bg-center
+  "
+        >
+          {/* Soft frosted overlay */}
+          <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px]"></div>
+
+          {/* Content */}
+          <div className="relative flex flex-col items-center text-center gap-5">
+            {/* Icon Container */}
+            <div
+              className="
+      w-20 h-20 flex items-center justify-center
+      bg-white/80 backdrop-blur-md rounded-3xl shadow-lg 
+      ring-1 ring-gray-200
+    "
+            >
+              <GiClothes className="text-4xl text-gray-800" />
             </div>
 
+            {/* Title */}
+            <h1
+              className="
+      text-4xl md:text-5xl font-extrabold 
+      text-gray-900 tracking-tight
+    "
+            >
+              My Wardrobe
+            </h1>
+
+            {/* Subtext */}
+            <p className="text-gray-600 text-base md:text-lg max-w-sm leading-relaxed">
+              {wardrobe.length} {wardrobe.length === 1 ? "item" : "items"}{" "}
+              organized neatly
+            </p>
+
+            {/* Action Button */}
             <button
               onClick={() => setShowUploadModal(true)}
-              className="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 shadow-sm transition-all duration-150"
+              className="
+        bg-black text-white px-6 py-3 rounded-xl
+        font-semibold flex items-center gap-2 
+        hover:bg-gray-900 active:scale-[0.98]
+        transition-all shadow-sm
+      "
             >
-              <FaPlus className="text-lg" />
-              <span className="hidden sm:inline">Add Item</span>
+              <FaPlus className="text-md" />
+              Add Item
             </button>
           </div>
         </div>
 
         {/* SEARCH BAR */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-8">
+        <div className="rounded-xl shadow-sm p-4 mb-8 border border-gray-200 bg-white bg-[url('/textures/soft-wood.png')] bg-cover bg-center bg-no-repeat bg-opacity-10">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 relative">
               <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -234,11 +264,15 @@ export default function VirtualWardrobe() {
               className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${
                 showFavoritesOnly
                   ? "bg-black text-white shadow-sm"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  : "bg-white text-gray-700 hover:bg-gray-200"
               }`}
             >
-              {showFavoritesOnly ? <FaHeart /> : <FaRegHeart />}
-              <span className="hidden sm:inline">
+              {showFavoritesOnly ? (
+                <FaHeart className="text-red-500" />
+              ) : (
+                <FaRegHeart className="text-red-500" />
+              )}
+              <span className="inline">
                 {showFavoritesOnly ? "Favorites" : "All Items"}
               </span>
             </button>

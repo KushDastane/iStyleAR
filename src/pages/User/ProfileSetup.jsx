@@ -243,305 +243,342 @@ export default function ProfileSetup() {
     );
   }
 
-  return (
-    <>
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Top Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 space-y-10">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              {/* Profile Picture */}
-              <div className="relative">
-                <img
-                  src={profileData.avatar}
-                  alt="Profile"
-                  className="w-24 h-24 rounded-full border-4 border-[#C9E4C5] object-cover"
-                />
-                <button
-                  onClick={() => setShowAvatarOptions(!showAvatarOptions)}
-                  className="absolute bottom-0 right-0 bg-[#C9E4C5] p-2 rounded-full shadow-md hover:shadow-lg transition"
-                >
-                  <FaCamera className="w-4 h-4 text-gray-700" />
-                </button>
+ return (
+   <>
+     <div className="min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 py-12">
+       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+         {/* ===================== UNIFIED PROFILE CARD ===================== */}
+         <div className="relative bg-white/80 backdrop-blur-lg border border-gray-200 rounded-3xl shadow-lg p-10 mb-12 overflow-visible">
+           {/* ========== TOP: Avatar + Name ========== */}
+           <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative">
+             {/* Avatar */}
+             <div className="relative group z-[50]">
+               <img
+                 src={profileData.avatar}
+                 alt="Profile"
+                 className="w-28 h-28 md:w-32 md:h-32 rounded-2xl shadow-md object-cover border border-gray-300"
+               />
 
-                {/* Avatar Options */}
-                {showAvatarOptions && (
-                  <div className="absolute top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 z-10 w-64">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-medium text-gray-700">
-                        Change Avatar
-                      </h4>
-                      <button
-                        onClick={() => setShowAvatarOptions(false)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <FaTimes className="w-4 h-4" />
-                      </button>
-                    </div>
+               <button
+                 onClick={() => setShowAvatarOptions(!showAvatarOptions)}
+                 className="
+                  absolute -bottom-3 -right-3 p-3
+                  bg-gradient-to-br from-emerald-400 to-emerald-500 
+                  text-white rounded-xl shadow-lg
+                  hover:shadow-xl active:scale-95 transition
+                "
+               >
+                 <FaCamera className="w-4 h-4" />
+               </button>
 
-                    <div className="space-y-3">
-                      <label
-                        htmlFor="avatar-upload"
-                        className="block cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2 p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
-                          <FaUpload className="w-4 h-4" />
-                          <span className="text-sm">Upload Photo</span>
-                        </div>
-                      </label>
-                      <input
-                        id="avatar-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        className="hidden"
-                      />
+               {/* Avatar Menu */}
+               {showAvatarOptions && (
+                 <div
+                   className="
+                    absolute left-1/2 -translate-x-1/2 mt-4 z-[9999]
+                    bg-white shadow-2xl border border-gray-200 
+                    rounded-2xl w-72 p-5 animate-fadeIn
+                  "
+                 >
+                   <div className="flex items-center justify-between mb-3">
+                     <h4 className="font-semibold text-gray-700 text-sm">
+                       Update Avatar
+                     </h4>
+                     <button
+                       onClick={() => setShowAvatarOptions(false)}
+                       className="text-gray-400 hover:text-gray-600"
+                     >
+                       <FaTimes className="w-4 h-4" />
+                     </button>
+                   </div>
 
-                      <div>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Choose Preset
-                        </p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {presetAvatars.map((avatar, index) => (
-                            <img
-                              key={index}
-                              src={avatar}
-                              alt={`Preset ${index + 1}`}
-                              onClick={() => selectPresetAvatar(avatar)}
-                              className="w-12 h-12 rounded-full border-2 border-gray-200 cursor-pointer hover:border-[#C9E4C5] transition"
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                   {/* Upload */}
+                   <label
+                     htmlFor="avatar-upload"
+                     className="flex items-center gap-3 p-3 rounded-xl cursor-pointer
+                      border border-gray-200 hover:bg-gray-50 transition"
+                   >
+                     <FaUpload />
+                     <span className="text-sm font-medium">Upload Image</span>
+                   </label>
 
-              {/* Name Section */}
-              <div className="flex-1 text-center md:text-left">
-                <h1 className="text-2xl font-bold text-gray-800 mb-2">
-                  Welcome,{" "}
-                  {isEditingName ? (
-                    <div className="inline-flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={tempName}
-                        onChange={(e) => setTempName(e.target.value)}
-                        className="border border-gray-300 rounded px-2 py-1 text-lg font-bold"
-                        autoFocus
-                      />
-                      <button
-                        onClick={saveName}
-                        className="text-green-600 hover:text-green-700"
-                      >
-                        <FaCheck className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={cancelNameEdit}
-                        className="text-red-600 hover:text-red-700"
-                      >
-                        <FaTimes className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span
-                      onClick={handleNameEdit}
-                      className="cursor-pointer hover:text-[#C9E4C5] transition"
-                    >
-                      {profileData.name || "User"}
-                      <FaEdit className="w-4 h-4 inline ml-2" />
-                    </span>
-                  )}
-                </h1>
-                <p className="text-gray-600">
-                  Complete your profile to personalize your iStyleAR experience
-                </p>
-              </div>
-            </div>
+                   <input
+                     id="avatar-upload"
+                     type="file"
+                     accept="image/*"
+                     className="hidden"
+                     onChange={handleAvatarUpload}
+                   />
 
-            {/* Profile Setup Section */}
+                   {/* Presets */}
+                   <p className="text-xs text-gray-500 mt-4 mb-2">
+                     Choose a preset
+                   </p>
 
-            <div className="flex items-center gap-3 mb-6">
-              <FaUser className="w-6 h-6 text-[#C9E4C5]" />
-              <h2 className="text-xl font-semibold text-gray-800">
-                Profile Setup
-              </h2>
-            </div>
-            <p className="text-gray-600 mb-6">
-              Helps us personalize your try-on experience
-            </p>
+                   <div className="grid grid-cols-3 gap-2">
+                     {presetAvatars.map((av, i) => (
+                       <img
+                         key={i}
+                         src={av}
+                         onClick={() => selectPresetAvatar(av)}
+                         className="
+                          w-14 h-14 rounded-xl border cursor-pointer 
+                          hover:scale-105 hover:border-emerald-400 
+                          transition object-cover
+                        "
+                       />
+                     ))}
+                   </div>
+                 </div>
+               )}
+             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Gender */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Gender
-                </label>
-                <select
-                  value={profileData.gender}
-                  onChange={(e) =>
-                    setProfileData({ ...profileData, gender: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9E4C5]"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer-not-to-say">Prefer not to say</option>
-                </select>
-              </div>
+             {/* Name */}
+             <div className="flex-1 text-center md:text-left space-y-2">
+               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900">
+                 Welcome,
+                 {isEditingName ? (
+                   <span className="inline-flex items-center gap-2 ml-2">
+                     <input
+                       value={tempName}
+                       onChange={(e) => setTempName(e.target.value)}
+                       autoFocus
+                       className="border rounded-lg px-2 py-1 text-lg font-semibold"
+                     />
+                     <FaCheck
+                       onClick={saveName}
+                       className="text-green-600 cursor-pointer"
+                     />
+                     <FaTimes
+                       onClick={cancelNameEdit}
+                       className="text-red-500 cursor-pointer"
+                     />
+                   </span>
+                 ) : (
+                   <span
+                     onClick={handleNameEdit}
+                     className="ml-2 cursor-pointer text-emerald-600 hover:underline flex items-center gap-1"
+                   >
+                     {profileData.name || "User"}
+                     <FaEdit className="text-sm" />
+                   </span>
+                 )}
+               </h1>
 
-              {/* Body Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Body Type
-                </label>
-                <select
-                  value={profileData.bodyType}
-                  onChange={(e) =>
-                    setProfileData({ ...profileData, bodyType: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#C9E4C5]"
-                >
-                  <option value="">Select Size</option>
-                  <option value="xs">XS</option>
-                  <option value="s">S</option>
-                  <option value="m">M</option>
-                  <option value="l">L</option>
-                  <option value="xl">XL</option>
-                  <option value="xxl">XXL</option>
-                </select>
-              </div>
-            </div>
+               <p className="text-gray-600 text-sm md:text-base">
+                 Personalize your virtual try-on experience
+               </p>
+             </div>
+           </div>
 
-            {/* Style Preferences */}
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Style Preferences
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "Casual",
-                  "Partywear",
-                  "Formal",
-                  "Ethnic/Traditional",
-                  "Streetwear",
-                  "Sporty",
-                  "Minimalist",
-                  "Trendy",
-                ].map((style) => (
-                  <button
-                    key={style}
-                    onClick={() => toggleStylePreference(style)}
-                    className={`px-3 py-1 rounded-full text-sm transition ${
-                      profileData.stylePreferences.includes(style)
-                        ? "bg-[#C9E4C5] text-gray-800"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    {style}
-                  </button>
-                ))}
-              </div>
-            </div>
+           {/* Divider */}
+           <div className="my-8 w-full h-px bg-gray-200"></div>
 
-            <button
-              onClick={saveProfileData}
-              className="mt-6 bg-[#C9E4C5] text-gray-800 px-6 py-2 rounded-lg hover:bg-[#b8d4b2] transition flex items-center gap-2"
-            >
-              <FaSave className="w-4 h-4" />
-              Save Profile
-            </button>
-          </div>
+           {/* ===================== PROFILE FORM ===================== */}
+           <div>
+             <div className="flex items-center gap-3 mb-6">
+               <FaUser className="text-emerald-500 w-6 h-6" />
+               <h2 className="text-xl font-bold text-gray-800 tracking-tight">
+                 Profile Details
+               </h2>
+             </div>
 
-          {/* My Space Section */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div
-              onClick={() => navigate("/user/wardrobe")}
-              className="bg-white rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition transform hover:-translate-y-0.5 cursor-pointer"
-            >
-              <div className="w-12 h-12 bg-[#C9E4C5] rounded-full flex items-center justify-center mx-auto mb-3">
-                <FaUser className="w-6 h-6 text-gray-700" />
-              </div>
-              <h3 className="font-semibold text-gray-800 mb-1">My Wardrobe</h3>
-              <p className="text-sm text-gray-600">Saved outfits</p>
-            </div>
+             <p className="text-gray-600 mb-8 text-sm">
+               Complete your details to improve outfit recommendations.
+             </p>
 
-            <div
-              onClick={() => navigate("/user/captures")}
-              className="cursor-pointer bg-white rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition transform hover:-translate-y-0.5"
-            >
-              <div className="w-12 h-12 bg-[#C9E4C5] rounded-full flex items-center justify-center mx-auto mb-3">
-                <FaCamera className="w-6 h-6 text-gray-700" />
-              </div>
-              <h3 className="font-semibold text-gray-800 mb-1">My Captures</h3>
-              <p className="text-sm text-gray-600">
-                {savedTryOns.length} Saved AR try-on photos
-              </p>
-            </div>
+             {/* Gender + Body Type */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div>
+                 <label className="text-sm font-medium text-gray-700">
+                   Gender
+                 </label>
+                 <select
+                   value={profileData.gender}
+                   onChange={(e) =>
+                     setProfileData({ ...profileData, gender: e.target.value })
+                   }
+                   className="w-full mt-1 border rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-300"
+                 >
+                   <option value="">Select</option>
+                   <option>Male</option>
+                   <option>Female</option>
+                   <option>Other</option>
+                   <option>Prefer not to say</option>
+                 </select>
+               </div>
 
-            <div
-              onClick={() => navigate("/user/achievements")}
-              className="cursor-pointer bg-white rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition transform hover:-translate-y-0.5"
-            >
-              <div className="w-12 h-12 bg-[#C9E4C5] rounded-full flex items-center justify-center mx-auto mb-3">
-                <FaTrophy className="w-6 h-6 text-gray-700" />
-              </div>
-              <h3 className="font-semibold text-gray-800 mb-1">
-                My Achievements
-              </h3>
-              <p className="text-sm text-gray-600">Badges & milestones</p>
-            </div>
-          </div>
+               <div>
+                 <label className="text-sm font-medium text-gray-700">
+                   Body Size
+                 </label>
+                 <select
+                   value={profileData.bodyType}
+                   onChange={(e) =>
+                     setProfileData({
+                       ...profileData,
+                       bodyType: e.target.value,
+                     })
+                   }
+                   className="w-full mt-1 border rounded-xl px-3 py-2 focus:ring-2 focus:ring-emerald-300"
+                 >
+                   <option value="">Select Size</option>
+                   <option>XS</option>
+                   <option>S</option>
+                   <option>M</option>
+                   <option>L</option>
+                   <option>XL</option>
+                   <option>XXL</option>
+                 </select>
+               </div>
+             </div>
 
-          {/* Account Settings Section */}
-          <div className="bg-white rounded-2xl shadow-lg p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <FaCog className="w-6 h-6 text-[#C9E4C5]" />
-              <h2 className="text-xl font-semibold text-gray-800">
-                Account Settings
-              </h2>
-            </div>
+             {/* Style Prefs */}
+             <div className="mt-8">
+               <label className="text-sm font-medium text-gray-700">
+                 Style Preferences
+               </label>
 
-            <div className="space-y-4">
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="w-full md:w-auto bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"
-              >
-                <FaEdit className="w-4 h-4" />
-                Edit Email / Password
-              </button>
+               <div className="flex flex-wrap gap-2 mt-2">
+                 {[
+                   "Casual",
+                   "Formal",
+                   "Partywear",
+                   "Streetwear",
+                   "Sporty",
+                   "Ethnic",
+                   "Minimalist",
+                   "Trendy",
+                 ].map((style) => (
+                   <button
+                     key={style}
+                     onClick={() => toggleStylePreference(style)}
+                     className={`
+                      px-4 py-1 rounded-full text-sm border transition-all
+                      ${
+                        profileData.stylePreferences.includes(style)
+                          ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }
+                    `}
+                   >
+                     {style}
+                   </button>
+                 ))}
+               </div>
+             </div>
 
-              <button
-                onClick={handleDeleteAccount}
-                className="w-full md:w-auto bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition flex items-center gap-2"
-              >
-                <FaTrash className="w-4 h-4" />
-                Delete Account
-              </button>
+             {/* Save Button */}
+             <button
+               onClick={saveProfileData}
+               className="
+                mt-8 bg-gradient-to-r from-emerald-500 to-emerald-600
+                text-white font-semibold px-6 py-3 rounded-xl
+                hover:shadow-lg active:scale-95 transition
+              "
+             >
+               <FaSave className="inline mr-2" /> Save Profile
+             </button>
+           </div>
+         </div>
 
-              <button
-                onClick={handleLogout}
-                className="w-full md:w-auto bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition flex items-center gap-2"
-              >
-                <FaSignOutAlt className="w-4 h-4" />
-                Log Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      {showConfirm && (
-        <DeleteAccountConfirm
-          onConfirm={confirmDelete}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
-      {showEditModal && (
-        <EditEmailPassword onClose={() => setShowEditModal(false)} />
-      )}
-    </>
-  );
+         {/* ===================== MY SPACE CARDS ===================== */}
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+           {[
+             {
+               title: "My Wardrobe",
+               icon: <FaUser className="text-gray-700 w-6 h-6" />,
+               onClick: () => navigate("/user/wardrobe"),
+               subtitle: "Saved outfits",
+             },
+             {
+               title: "My Captures",
+               icon: <FaCamera className="text-gray-700 w-6 h-6" />,
+               onClick: () => navigate("/user/captures"),
+               subtitle: `${savedTryOns.length} try-on photos`,
+             },
+             {
+               title: "Achievements",
+               icon: <FaTrophy className="text-gray-700 w-6 h-6" />,
+               onClick: () => navigate("/user/achievements"),
+               subtitle: "Badges & milestones",
+             },
+           ].map((card) => (
+             <div
+               key={card.title}
+               onClick={card.onClick}
+               className="
+                cursor-pointer bg-white/80 backdrop-blur-lg
+                border rounded-2xl shadow-md p-6 text-center
+                hover:shadow-xl hover:-translate-y-1 transition-all
+              "
+             >
+               <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3">
+                 {card.icon}
+               </div>
+               <h3 className="font-semibold text-gray-800">{card.title}</h3>
+               <p className="text-sm text-gray-500">{card.subtitle}</p>
+             </div>
+           ))}
+         </div>
+
+         {/* ===================== ACCOUNT SETTINGS ===================== */}
+         <div className="bg-white/80 rounded-3xl border shadow-lg p-10">
+           <div className="flex items-center gap-3 mb-6">
+             <FaCog className="text-emerald-500 w-6 h-6" />
+             <h2 className="text-xl font-bold text-gray-800 tracking-tight">
+               Account Settings
+             </h2>
+           </div>
+
+           <div className="space-y-4">
+             <button
+               onClick={() => setShowEditModal(true)}
+               className="
+                w-full md:w-auto bg-gray-100 px-5 py-2 rounded-xl
+                hover:bg-gray-200 flex items-center gap-2 text-gray-700
+              "
+             >
+               <FaEdit className="w-4 h-4" /> Edit Email / Password
+             </button>
+
+             <button
+               onClick={handleDeleteAccount}
+               className="
+                w-full md:w-auto bg-red-100 px-5 py-2 rounded-xl
+                hover:bg-red-200 flex items-center gap-2 text-red-700
+              "
+             >
+               <FaTrash className="w-4 h-4" /> Delete Account
+             </button>
+
+             <button
+               onClick={handleLogout}
+               className="
+                w-full md:w-auto bg-gray-100 px-5 py-2 rounded-xl
+                hover:bg-gray-200 flex items-center gap-2 text-gray-700
+              "
+             >
+               <FaSignOutAlt className="w-4 h-4" /> Log Out
+             </button>
+           </div>
+         </div>
+       </div>
+     </div>
+
+     {/* Modals */}
+     {showConfirm && (
+       <DeleteAccountConfirm
+         onConfirm={confirmDelete}
+         onCancel={() => setShowConfirm(false)}
+       />
+     )}
+
+     {showEditModal && (
+       <EditEmailPassword onClose={() => setShowEditModal(false)} />
+     )}
+   </>
+ );
+
+
 }

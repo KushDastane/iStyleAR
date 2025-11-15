@@ -152,14 +152,20 @@ export default function Achievements() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl shadow-lg mb-6 transform hover:scale-110 transition-transform duration-300">
-            <FaTrophy className="text-white text-4xl" />
+          {/* Icon container (clean + modern + consistent with wardrobe) */}
+          <div
+            className="w-20 h-20 mx-auto mb-6 flex items-center justify-center 
+                  bg-white/80 backdrop-blur-sm shadow-md rounded-3xl"
+          >
+            <FaTrophy className="text-yellow-500 text-4xl" />
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-3">
+          {/* Heading */}
+          <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-3">
             My Achievements
           </h1>
 
+          {/* Subtext */}
           <p className="text-gray-600 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
             Celebrate your trending successes! Track how your costumes inspire
             others.

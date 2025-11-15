@@ -6,16 +6,16 @@ import {
   useNavigate,
   Navigate,
 } from "react-router-dom";
-import { FaShoppingCart, FaBars, FaTimes } from "react-icons/fa";
+import { FaShoppingCart, FaBars, FaTimes, FaSignOutAlt } from "react-icons/fa";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase/config";
 import { toast } from "react-toastify";
 import Logo from "../assets/logo.png";
 import { useAuth } from "../context/AuthContext";
 
-
 export default function ProtectedLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -24,8 +24,11 @@ export default function ProtectedLayout() {
   // ✅ Guards
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#C9E4C5]"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-purple-600 absolute top-0 left-0"></div>
+        </div>
       </div>
     );
   }
@@ -35,22 +38,23 @@ export default function ProtectedLayout() {
   }
 
   useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+      if (menuOpen) setMenuOpen(false);
+    };
+
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setMenuOpen(false);
       }
     };
 
-    const handleScroll = () => {
-      if (menuOpen) setMenuOpen(false);
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
     window.addEventListener("scroll", handleScroll, { passive: true });
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
       window.removeEventListener("scroll", handleScroll);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [menuOpen]);
 
@@ -60,7 +64,7 @@ export default function ProtectedLayout() {
     { name: "Virtual Try-On", path: "/user/try-on" },
     { name: "View Cart", path: "/user/wardrobe" },
     { name: "Achievements", path: "/user/achievements" },
-     { name: "My Captures", path: "/user/captures" },
+    { name: "My Captures", path: "/user/captures" },
   ];
 
   const handleLogout = async () => {
@@ -75,65 +79,108 @@ export default function ProtectedLayout() {
 
   return (
     <>
-      <nav className="w-full bg-white/90 backdrop-blur-md shadow-md fixed top-0 left-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 lg:px-1 flex justify-between items-center h-16">
-          {/* Left: Logo + App Name */}
-          <div className="flex items-center space-x-3">
-            <img src={Logo} alt="iStyleAR" className="h-10 w-10 rounded-full" />
-            <span className="font-bold text-xl text-gray-900">iStyleAR</span>
-          </div>
+      <nav
+        className={`w-full fixed top-0 left-0 z-50 transition-all duration-300 ${
+          scrolled
+            ? "bg-white/95 backdrop-blur-lg shadow-lg"
+            : "bg-white/90 backdrop-blur-md shadow-md"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16 lg:h-18">
+            {/* Left: Logo + App Name */}
+            <Link
+              to="/user"
+              className="flex items-center space-x-3 group transition-transform hover:scale-105"
+            >
+              <div className="relative">
+                <img
+                  src={Logo}
+                  alt="iStyleAR"
+                  className="h-10 w-10 rounded-full ring-2 ring-purple-100 group-hover:ring-purple-300 transition-all"
+                />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              </div>
+              <span className="font-bold text-xl bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                iStyleAR
+              </span>
+            </Link>
 
-          {/* Middle: Nav Links */}
-          <div className="hidden md:flex space-x-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                to={link.path}
-                className={`text-gray-700 hover:text-purple-600 font-medium ${
-                  location.pathname === link.path ? "text-purple-600" : ""
+            {/* Middle: Nav Links (Desktop) */}
+            <div className="hidden lg:flex items-center space-x-1">
+              {navLinks.map((link) => {
+                const isActive = location.pathname === link.path;
+                return (
+                  <Link
+                    key={link.name}
+                    to={link.path}
+                    className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                      isActive
+                        ? "text-purple-600"
+                        : "text-gray-700 hover:text-purple-600 hover:bg-purple-50"
+                    }`}
+                  >
+                    {link.name}
+                    {isActive && (
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/2 h-0.5 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full"></span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Right: Icons + Profile + Logout */}
+            <div className="flex items-center space-x-3">
+              {/* Cart Icon */}
+              <button
+                onClick={() => navigate("/user/wardrobe")}
+                className={`relative p-2 rounded-lg transition-all duration-200 ${
+                  location.pathname === "/user/wardrobe"
+                    ? "bg-purple-100 text-purple-600"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-purple-600"
                 }`}
               >
-                {link.name}
-              </Link>
-            ))}
-          </div>
+                <FaShoppingCart className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full font-bold">
+                  3
+                </span>
+              </button>
 
-          {/* Right: Icons + Logout + Hamburger */}
-          <div className="flex gap-2 items-center space-x-4 md:space-x-2">
-            <FaShoppingCart
-              className={`w-6 h-6 cursor-pointer hover:text-purple-600 ${
-                location.pathname === "/user/wardrobe"
-                  ? "text-purple-600"
-                  : "text-gray-700"
-              }`}
-              onClick={() => navigate("/user/wardrobe")}
-            />
+              {/* Profile Picture */}
+              <button
+                onClick={() => navigate("/user/profile")}
+                className={`relative rounded-full transition-all duration-200 ${
+                  location.pathname === "/user/profile"
+                    ? "ring-2 ring-purple-600 ring-offset-2"
+                    : "ring-2 ring-gray-200 hover:ring-purple-300"
+                }`}
+              >
+                <img
+                  src={user.avatar || "/defaultpfp.png"}
+                  alt="Profile"
+                  className="w-9 h-9 rounded-full object-cover"
+                />
+              </button>
 
-            <img
-              src={user.avatar || "/defaultpfp.png"}
-              alt="Profile"
-              className={`w-8 h-8 rounded-full object-cover border-2 cursor-pointer hover:border-purple-600 ${
-                location.pathname === "/user/profile"
-                  ? "border-purple-600 shadow-lg"
-                  : "border-gray-300"
-              }`}
-              onClick={() => navigate("/user/profile")}
-            />
+              {/* Logout Button (Desktop) */}
+              <button
+                onClick={handleLogout}
+                className="hidden lg:flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              >
+                <FaSignOutAlt className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
 
-            <button
-              onClick={handleLogout}
-              className="hidden md:inline-block px-4 py-2 bg-red-700 hover:bg-red-900 text-white font-medium rounded-md transition-colors"
-            >
-              Logout
-            </button>
-
-            {/* Hamburger (mobile) */}
-            <div className="md:hidden" ref={menuRef}>
-              <button onClick={() => setMenuOpen(!menuOpen)}>
+              {/* Hamburger (Mobile) */}
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="lg:hidden p-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
+                ref={menuRef}
+              >
                 {menuOpen ? (
-                  <FaTimes className="w-6 h-6 text-gray-700" />
+                  <FaTimes className="w-6 h-6" />
                 ) : (
-                  <FaBars className="w-6 h-6 text-gray-700" />
+                  <FaBars className="w-6 h-6" />
                 )}
               </button>
             </div>
@@ -141,38 +188,45 @@ export default function ProtectedLayout() {
         </div>
 
         {/* Mobile Menu */}
-        {menuOpen && (
-          <div
-            ref={menuRef}
-            className="md:hidden bg-white shadow-md border-t border-gray-200 px-4 py-2 flex flex-col gap-2"
-          >
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                to={link.path}
-                onClick={() => setMenuOpen(false)}
-                className={`block px-4 py-2 text-gray-700 hover:bg-purple-50 hover:text-purple-600 font-medium rounded-md ${
-                  location.pathname === link.path ? "text-purple-600" : ""
-                }`}
-              >
-                {link.name}
-              </Link>
-            ))}
+        <div
+          className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+            menuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="px-4 py-3 bg-gradient-to-b from-white to-gray-50 border-t border-gray-200 space-y-1">
+            {navLinks.map((link) => {
+              const isActive = location.pathname === link.path;
+              return (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  onClick={() => setMenuOpen(false)}
+                  className={`block px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                    isActive
+                      ? "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-600 shadow-sm"
+                      : "text-gray-700 hover:bg-purple-50 hover:text-purple-600"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              );
+            })}
 
             <button
               onClick={() => {
                 handleLogout();
                 setMenuOpen(false);
               }}
-              className="px-4 py-2 bg-red-700 hover:bg-red-900 text-white font-medium rounded-md transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium rounded-lg transition-all duration-200 shadow-md mt-2"
             >
-              Logout
+              <FaSignOutAlt className="w-4 h-4" />
+              <span>Logout</span>
             </button>
           </div>
-        )}
+        </div>
       </nav>
 
-      <main className="pt-16">
+      <main className="pt-16 lg:pt-18 min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-50">
         <Outlet />
       </main>
     </>

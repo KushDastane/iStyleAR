@@ -488,17 +488,28 @@ export default function UserTryOn() {
 
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-3 bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white px-8 py-4 rounded-2xl shadow-2xl">
-          <FaMagic className="w-5 h-5 animate-pulse" />
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-            Virtual Try-On Studio
-          </h1>
-          <FaRegEye className="w-5 h-5" />
-        </div>
-        <p className="mt-3 text-xs md:text-sm text-slate-600 font-medium">
-          Select • Gesture Control • Capture • Save
-        </p>
-      </div>
+  <div 
+    className="
+      inline-flex items-center gap-4 
+      bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700
+      text-white px-10 py-5 rounded-2xl shadow-xl
+      backdrop-blur-sm
+    "
+  >
+    <FaMagic className="w-6 h-6 animate-pulse" />
+
+    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+      Virtual Try-On Studio
+    </h1>
+
+    <FaRegEye className="w-6 h-6 opacity-90" />
+  </div>
+
+  <p className="mt-3 text-sm md:text-base text-slate-600 font-medium">
+    Select • Gesture Control • Capture • Save
+  </p>
+</div>
+
 
       {/* Try-on counter */}
       <div className="mb-6 flex justify-center">

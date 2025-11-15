@@ -460,15 +460,19 @@ export default function Trending() {
         {/* Header Section */}
         <div className="mb-10">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-pink-500 to-rose-600 p-3 rounded-2xl shadow-lg">
-                <FaFire className="text-white w-7 h-7" />
+            <div className="flex items-center gap-4">
+              {/* Icon Container */}
+              <div className="bg-gradient-to-br from-pink-500 to-rose-600 p-4 rounded-2xl shadow-lg">
+                <FaFire className="text-white w-8 h-8" />
               </div>
+
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">
+                {/* Title (same weight + scale as "My Wardrobe") */}
+                <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 tracking-tight">
                   Trending Outfits
                 </h1>
-                <p className="text-gray-600 text-sm md:text-base mt-1">
+
+                <p className="text-gray-600 text-base md:text-lg mt-1">
                   Discover what's hot in fashion right now
                 </p>
               </div>
