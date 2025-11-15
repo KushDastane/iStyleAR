@@ -13,6 +13,7 @@ import {
 } from "firebase/firestore";
 import { toast } from "react-toastify";
 import { useNavigate, useLocation } from "react-router-dom";
+import { GiClothes } from "react-icons/gi";
 import {
   FaEdit,
   FaTrash,
@@ -23,6 +24,10 @@ import {
   FaHeart,
   FaRegHeart,
   FaChartLine,
+  FaSearch,
+  FaFilter,
+  FaPlus,
+  FaImage,
 } from "react-icons/fa";
 
 export default function VirtualWardrobe() {
@@ -41,6 +46,10 @@ export default function VirtualWardrobe() {
   const [editName, setEditName] = useState("");
   const [favorites, setFavorites] = useState([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [newItemName, setNewItemName] = useState("");
 
   useEffect(() => {
     if (user) fetchWardrobe();
@@ -73,11 +82,21 @@ export default function VirtualWardrobe() {
     }
   };
 
-  const handleFileChange = (e) => setSelectedFile(e.target.files[0]);
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setPreviewUrl(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
 
-  const handleAddCloth = async (cloth) => {
+  const handleAddCloth = async () => {
     if (!user) return toast.error("Please log in first!");
     if (!selectedFile) return toast.error("Select an image!");
+    if (!newItemName.trim()) return toast.error("Enter an item name!");
+
     setUploading(true);
 
     try {
@@ -92,7 +111,7 @@ export default function VirtualWardrobe() {
       );
 
       await addDoc(collection(db, "users", user.uid, "wardrobe"), {
-        name: cloth.name,
+        name: newItemName,
         imageUrl: res.data.secure_url,
         addedAt: serverTimestamp(),
         source: "userUpload",
@@ -101,7 +120,9 @@ export default function VirtualWardrobe() {
 
       toast.success("Added to wardrobe!");
       setSelectedFile(null);
-      document.getElementById("userClothName").value = "";
+      setPreviewUrl(null);
+      setNewItemName("");
+      setShowUploadModal(false);
       fetchWardrobe();
     } catch {
       toast.error("Upload failed.");
@@ -126,6 +147,7 @@ export default function VirtualWardrobe() {
   };
 
   const handleDeleteCloth = async (clothId) => {
+    if (!window.confirm("Are you sure you want to remove this item?")) return;
     await deleteDoc(doc(db, "users", user.uid, "wardrobe", clothId));
     toast.success("Removed from wardrobe!");
     fetchWardrobe();
@@ -156,187 +178,323 @@ export default function VirtualWardrobe() {
     });
   };
 
+  const filteredWardrobe = wardrobe.filter((item) =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const displayedWardrobe = showFavoritesOnly
-    ? wardrobe.filter((c) => favorites.includes(c.id))
-    : wardrobe;
+    ? filteredWardrobe.filter((c) => favorites.includes(c.id))
+    : filteredWardrobe;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Enhanced Creative Title */}
-        <div className="text-center mb-10 flex flex-col items-center gap-3 p-6 bg-gradient-to-r from-indigo-700 to-purple-700 rounded-2xl shadow-xl">
-          <div className="flex items-center justify-center gap-3">
-            <FaTshirt className="text-green-200 text-3xl transition-transform hover:scale-110" />
-            <h1 className="text-5xl font-extrabold text-white relative">
-              My Virtual Wardrobe
-              <span className="block h-1 w-24 bg-white/70 rounded-full mt-2 mx-auto"></span>
-            </h1>
-            <FaTshirt className="text-pink-300 text-3xl transition-transform hover:scale-110" />
+    <div className="min-h-screen bg-gradient-to-br from-white to-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* HEADER — IKEA CLEAN */}
+        <div className="mb-8 bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex gap-2">
+                <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+                  My Wardrobe
+                </h1>
+                <GiClothes className="text-2xl mt-2.5" />
+              </div>
+              <p className="text-gray-500">
+                {wardrobe.length} {wardrobe.length === 1 ? "item" : "items"}{" "}
+                organized neatly
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 shadow-sm transition-all duration-150"
+            >
+              <FaPlus className="text-lg" />
+              <span className="hidden sm:inline">Add Item</span>
+            </button>
           </div>
-          <p className="text-white/80 italic text-sm mt-1">
-            Organize, Try-On & Flaunt Your Style
-          </p>
         </div>
 
-        {/* Filter by Favorites */}
-        <div className="flex justify-end mb-6">
-          <button
-            onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-            className={`flex items-center gap-2 p-2 rounded-full transition-transform transform hover:scale-105 ${
-              showFavoritesOnly
-                ? "bg-pink-500 text-white shadow-lg"
-                : "bg-white border border-gray-300"
-            }`}
-          >
-            {showFavoritesOnly ? <FaHeart /> : <FaRegHeart />}
-          </button>
+        {/* SEARCH BAR */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 mb-8">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 relative">
+              <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black focus:border-black bg-white"
+              />
+            </div>
+
+            <button
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all ${
+                showFavoritesOnly
+                  ? "bg-black text-white shadow-sm"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {showFavoritesOnly ? <FaHeart /> : <FaRegHeart />}
+              <span className="hidden sm:inline">
+                {showFavoritesOnly ? "Favorites" : "All Items"}
+              </span>
+            </button>
+          </div>
         </div>
 
-        {/* Wardrobe Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-          {isLoadingWardrobe ? (
-            <div className="flex justify-center items-center py-8 col-span-full">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-              <span className="ml-3 text-gray-600">Loading wardrobe...</span>
-            </div>
-          ) : displayedWardrobe.length === 0 ? (
-            <div className="bg-white/70 p-10 rounded-3xl text-center shadow-md col-span-full">
-              <p className="text-gray-500 text-lg">No items to show.</p>
-            </div>
-          ) : (
-            displayedWardrobe.map((cloth) => (
+        {/* GRID / SHELVES */}
+        {isLoadingWardrobe ? (
+          <div className="flex flex-col justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-black border-t-transparent mb-4"></div>
+            <p className="text-gray-600 font-medium">Loading...</p>
+          </div>
+        ) : displayedWardrobe.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-12 text-center">
+            <FaTshirt className="text-gray-300 text-6xl mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {searchQuery || showFavoritesOnly
+                ? "No items found"
+                : "Wardrobe empty"}
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {searchQuery
+                ? "Try a different term"
+                : showFavoritesOnly
+                ? "You haven't favorited anything yet"
+                : "Start adding your outfits"}
+            </p>
+
+            {!searchQuery && !showFavoritesOnly && (
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-xl font-semibold inline-flex items-center gap-2"
+              >
+                <FaPlus /> Add First Item
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {displayedWardrobe.map((cloth) => (
               <div
                 key={cloth.id}
-                className="relative rounded-3xl bg-white shadow-md p-3 flex flex-col items-center hover:shadow-xl transition-transform transform hover:scale-3d"
+                className="bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all p-3"
               >
-                {/* Favorite Heart */}
-                <button
-                  onClick={() => toggleFavorite(cloth)}
-                  className="absolute top-3 right-3 text-lg text-pink-500 hover:scale-125 transition-transform"
-                >
-                  {favorites.includes(cloth.id) ? <FaHeart /> : <FaRegHeart />}
-                </button>
+                {/* IMAGE */}
+                <div className="relative aspect-square bg-gray-50 rounded-xl overflow-hidden">
+                  <img
+                    src={cloth.imageUrl}
+                    alt={cloth.name}
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  />
 
-                <img
-                  src={cloth.imageUrl}
-                  alt={cloth.name}
-                  className="w-32 h-32 object-contain mb-2"
-                />
+                  {/* FAVORITE */}
+                  <button
+                    onClick={() => toggleFavorite(cloth)}
+                    className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full shadow flex items-center justify-center text-black hover:scale-110 transition"
+                  >
+                    {favorites.includes(cloth.id) ? (
+                      <FaHeart />
+                    ) : (
+                      <FaRegHeart />
+                    )}
+                  </button>
+                </div>
 
-                {editId === cloth.id ? (
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="border p-1 rounded-md text-sm w-24"
+                {/* TEXT + ACTIONS */}
+                <div className="p-3">
+                  {editId === cloth.id ? (
+                    <div className="flex items-center gap-2 mb-3">
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="flex-1 border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-black"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleEditSave(cloth.id)}
+                        className="text-green-600"
+                      >
+                        <FaSave />
+                      </button>
+                      <button
+                        onClick={() => setEditId(null)}
+                        className="text-gray-500"
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                  ) : (
+                    <h3 className="font-semibold text-gray-900 text-base mb-3 truncate">
+                      {cloth.name}
+                    </h3>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() =>
+                        navigate(`/user/try-on`, { state: { cloth } })
+                      }
+                      className="bg-black hover:bg-gray-800 text-white px-3 py-2 rounded-lg text-xs flex items-center justify-center gap-1"
+                    >
+                      <FaTshirt /> Try
+                    </button>
+
+                    <button
+                      onClick={() => handleEditStart(cloth)}
+                      className="bg-gray-300 hover:bg-gray-400 text-black px-3 py-2 rounded-lg text-xs flex items-center justify-center gap-1"
+                    >
+                      <FaEdit /> Edit
+                    </button>
+
+                    <button
+                      onClick={() => handleDeleteCloth(cloth.id)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs flex items-center justify-center gap-1"
+                    >
+                      <FaTrash /> Del
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* TRENDING CTA */}
+        <div className="mt-12">
+          <div className="bg-black text-white rounded-2xl p-8 shadow-lg">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                  <FaChartLine /> Trending Styles
+                </h2>
+                <p className="text-gray-300 text-sm max-w-md">
+                  Explore the latest outfits & add them instantly.
+                </p>
+              </div>
+
+              <button
+                onClick={() => navigate("/user/trending")}
+                className="bg-white text-black px-8 py-3 rounded-xl font-semibold flex items-center gap-2 hover:bg-gray-100 shadow"
+              >
+                Browse Trending <FaChartLine />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* UPLOAD MODAL */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            {/* MODAL HEADER */}
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <FaPlus /> Add New Item
+              </h2>
+              <button
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setSelectedFile(null);
+                  setPreviewUrl(null);
+                  setNewItemName("");
+                }}
+                className="text-gray-600 hover:text-gray-800"
+              >
+                <FaTimes className="text-2xl" />
+              </button>
+            </div>
+
+            {/* MODAL BODY */}
+            <div className="p-6">
+              {/* IMAGE PREVIEW */}
+              <div className="mb-6">
+                {previewUrl ? (
+                  <div className="relative">
+                    <img
+                      src={previewUrl}
+                      className="w-full h-64 object-cover rounded-xl border border-gray-200"
                     />
                     <button
-                      onClick={() => handleEditSave(cloth.id)}
-                      className="text-green-600 hover:text-green-700"
-                    >
-                      <FaSave />
-                    </button>
-                    <button
-                      onClick={() => setEditId(null)}
-                      className="text-gray-500 hover:text-gray-700"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setPreviewUrl(null);
+                      }}
+                      className="absolute top-2 right-2 bg-black text-white p-2 rounded-full"
                     >
                       <FaTimes />
                     </button>
                   </div>
                 ) : (
-                  <p className="font-medium text-gray-700 text-sm mb-2 text-center">
-                    {cloth.name}
-                  </p>
+                  <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-black bg-gray-50">
+                    <FaImage className="text-gray-400 text-5xl mb-3" />
+                    <span className="text-sm text-gray-600 font-medium">
+                      Click to upload
+                    </span>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
                 )}
-
-                <div className="flex gap-2 justify-center">
-                  {/* Try-On Button */}
-                  <button
-                    onClick={() =>
-                      navigate(`/user/try-on`, { state: { cloth } })
-                    }
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
-                    title="Try On"
-                  >
-                    <FaTshirt />
-                    <span className="hidden sm:inline ml-1">Try On</span>
-                  </button>
-
-                  {/* Edit Button */}
-                  <button
-                    onClick={() => handleEditStart(cloth)}
-                    className="bg-yellow-400 hover:bg-yellow-500 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
-                    title="Edit"
-                  >
-                    <FaEdit />
-                    <span className="hidden sm:inline ml-1">Edit</span>
-                  </button>
-
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleDeleteCloth(cloth.id)}
-                    className="bg-red-500 hover:bg-red-600 text-white px-2 sm:px-3 py-2 rounded-xl flex items-center justify-center text-sm "
-                    title="Delete"
-                  >
-                    <FaTrash />
-                    <span className="hidden sm:inline ml-1">Delete</span>
-                  </button>
-                </div>
               </div>
-            ))
-          )}
-        </div>
 
-        {/* Upload Section */}
-        <section className="mt-10">
-          <div className="flex flex-wrap items-center gap-2 bg-white p-4 rounded-3xl shadow-md">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="border p-2 rounded-xl text-sm"
-            />
-            <input
-              type="text"
-              placeholder="Name your item"
-              className="border p-2 rounded-xl text-sm flex-1 min-w-[150px]"
-              id="userClothName"
-            />
-            <button
-              onClick={() => {
-                const name =
-                  document.getElementById("userClothName").value || "My Item";
-                handleAddCloth({ name, img: null });
-              }}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-2xl flex items-center gap-2 text-sm transition disabled:opacity-50"
-              disabled={uploading || !selectedFile}
-            >
-              <FaUpload /> Upload
-            </button>
-          </div>
-        </section>
+              {/* NAME INPUT */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Item Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g., Blue Shirt"
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-black bg-white"
+                />
+              </div>
 
-        {/* Add from Trending */}
-        <div className="text-center mt-10">
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-3xl p-8 shadow-xl flex flex-col md:flex-row justify-between items-center gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold mb-2 flex items-center gap-2">
-                <FaTshirt /> Add from Trending
-              </h2>
-              <p className="text-indigo-100 text-sm">
-                Discover the most popular outfits and add them to your
-                collection.
-              </p>
+              {/* ACTION BUTTONS */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setSelectedFile(null);
+                    setPreviewUrl(null);
+                    setNewItemName("");
+                  }}
+                  className="flex-1 px-6 py-3 border border-gray-400 bg-gray-100 text-gray-800 rounded-xl hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={handleAddCloth}
+                  disabled={uploading || !selectedFile || !newItemName.trim()}
+                  className="flex-1 bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <FaUpload /> Add Item
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => navigate("/user/trending")}
-              className="bg-white text-indigo-700 px-5 py-2 rounded-2xl font-semibold flex items-center gap-2 hover:bg-indigo-100 transition"
-            >
-              Go to Trending <FaChartLine />
-            </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
