@@ -15,6 +15,12 @@ import CreativeCarousel from "../../Components/CreativeCarousel";
 import { FaRegEye, FaMagic, FaCamera, FaStop } from "react-icons/fa";
 import axios from "axios";
 
+// Gesture controller import
+import {
+  createHandDetector,
+  detectGesture,
+} from "../../utils/gestureController";
+
 export default function UserTryOn() {
   const { user } = useAuth();
   const [freeTryonsLeft, setFreeTryonsLeft] = useState(0);
@@ -27,9 +33,8 @@ export default function UserTryOn() {
 
   const [stream, setStream] = useState(null);
   const [isLiveTryOn, setIsLiveTryOn] = useState(false);
-
   const [highlightLive, setHighlightLive] = useState(false);
-
+  const [showPalmHint, setShowPalmHint] = useState(false);
 
   const sizes = ["S", "M", "L", "XL", "XXL"];
   const videoRef = useRef(null);
@@ -38,14 +43,24 @@ export default function UserTryOn() {
   const lastOverlayRef = useRef(null);
   const isProcessingRef = useRef(false);
   const isLiveTryOnRef = useRef(false);
+  const carouselRef = useRef(null);
+  const selectedDressRef = useRef(null);
+
+  // Gesture states
+  const [gestureMessage, setGestureMessage] = useState("");
+  const detectorRef = useRef(null);
+  const lastGestureTimeRef = useRef(0); // throttle gestures
+
+  // Capture Button Ref
+  const captureButtonRef = useRef(null);
 
   // Fetch free try-ons
   useEffect(() => {
     if (!user) return;
     const fetchUserData = async () => {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        setFreeTryonsLeft(userDoc.data().freeTryonsLeft ?? 15);
+      const userDocSnap = await getDoc(doc(db, "users", user.uid));
+      if (userDocSnap.exists()) {
+        setFreeTryonsLeft(userDocSnap.data().freeTryonsLeft ?? 15);
       } else {
         await updateDoc(doc(db, "users", user.uid), { freeTryonsLeft: 15 });
         setFreeTryonsLeft(15);
@@ -61,15 +76,28 @@ export default function UserTryOn() {
       const wardrobeSnap = await getDocs(
         collection(db, "users", user.uid, "wardrobe")
       );
-      const items = wardrobeSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const items = wardrobeSnap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
       }));
       setWardrobeItems(items);
       if (items.length > 0 && !selectedDress) setSelectedDress(items[0]);
     };
     fetchWardrobe();
   }, [user]);
+
+  // Load MediaPipe Hand Detector
+  useEffect(() => {
+    async function loadDetector() {
+      try {
+        detectorRef.current = await createHandDetector();
+        console.log("Hand detector loaded");
+      } catch (err) {
+        console.error("Failed to load hand detector", err);
+      }
+    }
+    loadDetector();
+  }, []);
 
   // Cleanup
   useEffect(() => {
@@ -78,55 +106,58 @@ export default function UserTryOn() {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
+      isLiveTryOnRef.current = false;
     };
   }, [stream]);
 
+  // Whenever dress changes, sync ref + clear old overlay
+  useEffect(() => {
+    selectedDressRef.current = selectedDress || null;
+    lastOverlayRef.current = null;
+    isProcessingRef.current = false;
+  }, [selectedDress]);
+
   // Start webcam
- const startWebcam = async () => {
-   try {
-     const mediaStream = await navigator.mediaDevices.getUserMedia({
-       video: true,
-     });
-     setStream(mediaStream);
+  const startWebcam = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      setStream(mediaStream);
 
-     await new Promise((resolve) => {
-       const checkRef = setInterval(() => {
-         if (videoRef.current) {
-           clearInterval(checkRef);
-           resolve();
-         }
-       }, 100);
-     });
+      await new Promise((resolve) => {
+        const checkRef = setInterval(() => {
+          if (videoRef.current) {
+            clearInterval(checkRef);
+            resolve();
+          }
+        }, 100);
+      });
 
-     videoRef.current.srcObject = mediaStream;
+      videoRef.current.srcObject = mediaStream;
 
-     try {
-       await videoRef.current.play();
+      try {
+        await videoRef.current.play();
 
-       // 👇 ADD THIS: highlight the LIVE button
-       setHighlightLive(true);
-       setTimeout(() => setHighlightLive(false), 4000);
-     } catch (playErr) {
-       console.error("Video play error:", playErr);
-       alert(
-         "Unable to play video. Please check your browser settings for autoplay."
-       );
-     }
-   } catch (err) {
-     console.error("Webcam error:", err);
-     alert("Unable to access webcam. Please allow camera permissions.");
-   }
- };
+        setHighlightLive(true);
+        setTimeout(() => setHighlightLive(false), 4000);
+      } catch (playErr) {
+        console.error("Video play error:", playErr);
+        alert("Unable to play video. Please allow camera permissions.");
+      }
+    } catch (err) {
+      console.error("Webcam error:", err);
+      alert("Unable to access webcam. Please allow camera permissions.");
+    }
+  };
 
-
-  // Process frame
+  // Process frame (backend overlay)
   const processFrame = async () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
 
     if (!canvas || !video) return;
 
-    // Update canvas size if needed
     if (
       canvas.width !== video.videoWidth ||
       canvas.height !== video.videoHeight
@@ -137,34 +168,42 @@ export default function UserTryOn() {
 
     const ctx = canvas.getContext("2d");
 
-    // Draw video first
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Draw last overlay if available
     if (lastOverlayRef.current) {
       ctx.drawImage(lastOverlayRef.current, 0, 0, canvas.width, canvas.height);
     }
 
-    // Only send to backend if not already processing
-    if (!isProcessingRef.current && selectedDress?.imageUrl) {
+    const currentDress = selectedDressRef.current;
+
+    if (!isProcessingRef.current && currentDress?.imageUrl) {
       isProcessingRef.current = true;
       try {
         const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
+        const dressIdAtRequestTime = currentDress.id;
+
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/tryon`,
           {
             frame: frameData,
-            shirtUrl: selectedDress.imageUrl,
+            shirtUrl: currentDress.imageUrl,
           }
         );
 
         if (response.data.result) {
           const img = new Image();
           img.onload = () => {
+            // Ignore outdated responses
+            if (
+              !selectedDressRef.current ||
+              selectedDressRef.current.id !== dressIdAtRequestTime
+            ) {
+              return;
+            }
             lastOverlayRef.current = img;
           };
-          img.src = `data:image/jpeg;base64,${response.data.result}`;
+          img.src = `data:image/png;base64,${response.data.result}`;
         }
       } catch (err) {
         console.error("Backend error:", err);
@@ -178,10 +217,87 @@ export default function UserTryOn() {
     }
   };
 
-  const startLiveTryOn = async () => {
-    if (!selectedDress || !videoRef.current || !stream) return;
+  // ---------------- GESTURES -----------------
 
-    // Wait for video to be ready
+  const triggerCaptureButton = () => {
+    if (captureButtonRef.current) {
+      captureButtonRef.current.click();
+    }
+  };
+
+  const handleGesture = (g) => {
+    const now = performance.now();
+    // throttle to avoid crazy fast cycling
+    if (now - lastGestureTimeRef.current < 2500) return;
+    lastGestureTimeRef.current = now;
+
+    if (g === "CAPTURE") {
+      setGestureMessage("✋ Capturing...");
+      triggerCaptureButton();
+      return;
+    }
+
+    if (!wardrobeItems.length || !selectedDressRef.current) return;
+
+    const currentIdx = wardrobeItems.findIndex(
+      (i) => i.id === selectedDressRef.current.id
+    );
+    const safeIdx = currentIdx === -1 ? 0 : currentIdx;
+
+    if (g === "NEXT") {
+      const nextIndex = (safeIdx + 1) % wardrobeItems.length;
+      const nextDress = wardrobeItems[nextIndex];
+
+      setSelectedDress(nextDress);
+      setGestureMessage("👍 Next Dress");
+
+      carouselRef.current?.slideTo(nextIndex);
+    }
+
+    if (g === "PREV") {
+      const prevIndex =
+        (safeIdx - 1 + wardrobeItems.length) % wardrobeItems.length;
+      const prevDress = wardrobeItems[prevIndex];
+
+      setSelectedDress(prevDress);
+      setGestureMessage("👎 Previous Dress");
+
+      carouselRef.current?.slideTo(prevIndex);
+    }
+  };
+
+  const startGestureDetection = () => {
+    const video = videoRef.current;
+    if (!video || !detectorRef.current) return;
+
+    const detectLoop = async (t) => {
+      if (!isLiveTryOnRef.current) return;
+
+      const results = await detectorRef.current.detectForVideo(
+        video,
+        t || performance.now()
+      );
+
+      const gesture = detectGesture(results?.landmarks);
+
+      if (gesture) {
+        handleGesture(gesture);
+      }
+
+      requestAnimationFrame(detectLoop);
+    };
+
+    requestAnimationFrame(detectLoop);
+  };
+
+  // ------------ LIVE TRY-ON ------------
+
+  const startLiveTryOn = async () => {
+    if (!selectedDress || !videoRef.current || !stream) {
+      toast.error("Start camera and select a dress first.");
+      return;
+    }
+
     if (videoRef.current.readyState < 2) {
       setTimeout(startLiveTryOn, 200);
       return;
@@ -189,7 +305,13 @@ export default function UserTryOn() {
 
     setIsLiveTryOn(true);
     isLiveTryOnRef.current = true;
+    setGestureMessage("");
+
+    setShowPalmHint(true);
+    setTimeout(() => setShowPalmHint(false), 4000);
+
     animationRef.current = requestAnimationFrame(processFrame);
+    startGestureDetection();
   };
 
   const stopLiveTryOn = () => {
@@ -197,6 +319,7 @@ export default function UserTryOn() {
     isLiveTryOnRef.current = false;
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
     isProcessingRef.current = false;
+    setGestureMessage("");
   };
 
   const handleReset = () => {
@@ -207,6 +330,7 @@ export default function UserTryOn() {
       stream.getTracks().forEach((track) => track.stop());
       setStream(null);
     }
+    setTryOnImage(null);
   };
 
   const handleCaptureTryOn = () => {
@@ -214,7 +338,7 @@ export default function UserTryOn() {
     if (canvasRef.current && isLiveTryOn) {
       const url = canvasRef.current.toDataURL("image/png");
       setTryOnImage(url);
-      stopLiveTryOn(); // Freeze the live try-on at this frame
+      stopLiveTryOn();
     } else {
       setTryOnImage(selectedDress.imageUrl);
     }
@@ -223,7 +347,13 @@ export default function UserTryOn() {
   const handleRetake = () => {
     setTryOnImage(null);
     setIsPublic(false);
-    startLiveTryOn(); // Resume live try-on
+    if (stream && selectedDress) {
+      setIsLiveTryOn(true);
+      isLiveTryOnRef.current = true;
+      setGestureMessage("");
+      animationRef.current = requestAnimationFrame(processFrame);
+      startGestureDetection();
+    }
   };
 
   const handleUploadTryOn = async () => {
@@ -232,7 +362,6 @@ export default function UserTryOn() {
     setUploading(true);
 
     try {
-      // Upload to Cloudinary
       const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
       const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 
@@ -290,24 +419,22 @@ export default function UserTryOn() {
   return (
     <div
       className="
-  relative min-h-screen 
-  p-4 md:p-6 
-  pb-32  /* <-- ADDED: space for bottom bar on phone */
-  flex flex-col items-center 
-  overflow-x-hidden
-"
+        relative min-h-screen 
+        p-4 md:p-6 
+        pb-32
+        flex flex-col items-center 
+        overflow-x-hidden
+      "
     >
-      {/* Background & Header */}
+      {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-200 via-indigo-200 to-blue-200 opacity-50 -z-10"></div>
-      <div className="absolute -top-32 -left-32 w-64 h-64 bg-purple-300/40 rounded-full blur-[120px] -z-10"></div>
-      <div className="absolute bottom-0 right-0 w-72 h-72 bg-blue-300/40 rounded-full blur-[120px] -z-10"></div>
 
       {/* Header */}
       <div className="text-center mb-8 relative bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-800 text-white rounded-xl py-6 px-4 shadow-lg">
         <h1 className="text-2xl md:text-4xl font-extrabold flex items-center justify-center gap-2 tracking-tight">
-          <FaMagic className="text-white/90" />
+          <FaMagic />
           Virtual Try-On
-          <FaRegEye className="text-white/90" />
+          <FaRegEye />
         </h1>
         <p className="mt-2 text-xs md:text-sm text-white/90 font-medium tracking-wide">
           Select • Size • Capture • Save
@@ -321,12 +448,29 @@ export default function UserTryOn() {
         </span>
       </div>
 
-      {/* MAIN SECTION */}
+      {/* MAIN */}
       <div className="flex flex-col lg:flex-row w-full max-w-6xl gap-6">
-        {/* Try-on Preview */}
+        {/* Camera */}
         <div className="w-full lg:w-1/2 min-h-[28rem] border rounded-xl shadow flex items-center justify-center bg-white overflow-hidden relative">
           <div className="relative w-full aspect-square bg-black">
-            {/* Live video */}
+            {/* Gesture message */}
+            {gestureMessage && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white px-4 py-2 rounded-xl text-sm z-50">
+                {gestureMessage}
+              </div>
+            )}
+
+            {showPalmHint && !gestureMessage && (
+              <div
+                className="absolute top-14 left-1/2 -translate-x-1/2 
+                  bg-black/50 text-white px-4 py-2 rounded-xl text-sm 
+                  backdrop-blur-sm animate-pulse z-40"
+              >
+                ✋ Show your palm to capture
+              </div>
+            )}
+
+            {/* Video */}
             <video
               ref={videoRef}
               autoPlay
@@ -340,7 +484,7 @@ export default function UserTryOn() {
               }}
             />
 
-            {/* Canvas Overlay */}
+            {/* Overlay */}
             <canvas
               ref={canvasRef}
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -351,7 +495,7 @@ export default function UserTryOn() {
               }}
             />
 
-            {/* Final screenshot / fallback */}
+            {/* Final screenshot / placeholder */}
             {tryOnImage ? (
               <img
                 src={tryOnImage}
@@ -372,6 +516,7 @@ export default function UserTryOn() {
           <div className="w-full bg-white rounded-xl shadow p-3">
             {wardrobeItems.length > 0 ? (
               <CreativeCarousel
+                ref={carouselRef}
                 items={wardrobeItems}
                 selectedItem={selectedDress}
                 onSelect={setSelectedDress}
@@ -404,14 +549,11 @@ export default function UserTryOn() {
         </div>
       </div>
 
-      {/* ACTION BAR (NON-FIXED, CLEAN, MODERN) */}
+      {/* ACTION BAR */}
       {!tryOnImage ? (
         <div className="mt-6 w-full max-w-lg mx-auto">
-          <div
-            className="bg-white/90 backdrop-blur-xl shadow-lg rounded-2xl 
-                    p-4 flex items-center justify-around"
-          >
-            {/* START / LIVE / STOP */}
+          <div className="bg-white/90 backdrop-blur-xl shadow-lg rounded-2xl p-4 flex items-center justify-around">
+            {/* CAMERA START */}
             {!stream ? (
               <button
                 onClick={startWebcam}
@@ -448,6 +590,7 @@ export default function UserTryOn() {
 
             {/* CAPTURE */}
             <button
+              ref={captureButtonRef}
               onClick={handleCaptureTryOn}
               className="flex flex-col items-center"
             >
@@ -489,7 +632,6 @@ export default function UserTryOn() {
               </button>
             </div>
 
-            {/* PUBLIC TOGGLE */}
             <label className="flex items-center gap-2 text-gray-700 text-sm font-medium">
               <input
                 type="checkbox"
