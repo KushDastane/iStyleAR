@@ -9,6 +9,7 @@ import {
   collection,
   getDocs,
 } from "firebase/firestore";
+import { GoogleAuthProvider, reauthenticateWithPopup } from "firebase/auth";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import DeleteAccountConfirm from "../../Components/DeleteAccountConfirm";
@@ -240,6 +241,10 @@ export default function ProfileSetup() {
   const confirmDelete = async () => {
     try {
       if (!user) return;
+
+      // Reauthenticate the user before deletion
+      const provider = new GoogleAuthProvider();
+      await reauthenticateWithPopup(user, provider);
 
       // Delete Firestore user document
       await updateDoc(doc(db, "users", user.uid), { deleted: true }); // optional: soft delete flag

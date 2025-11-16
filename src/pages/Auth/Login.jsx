@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { auth } from "../../firebase/config";
 import { toast } from "react-toastify";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { FaArrowLeft, FaGoogle } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -10,11 +10,9 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const location = useLocation();
   const { user } = useAuth();
 
-  const redirectParam =
-    new URLSearchParams(location.search).get("redirect") || "/user";
+  const redirectParam = "/user"; // Always redirect to dashboard after login
 
   const getFriendlyError = (error) => {
     if (!error?.code) return "Something went wrong. Please try again.";
