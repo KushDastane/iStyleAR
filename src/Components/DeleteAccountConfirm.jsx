@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ReCAPTCHA from "react-google-recaptcha";
+import { FaGoogle, FaExclamationTriangle } from "react-icons/fa";
 
 function DeleteAccountConfirm({ onConfirm, onCancel }) {
   const [textMatch, setTextMatch] = useState(false);
@@ -13,17 +14,21 @@ function DeleteAccountConfirm({ onConfirm, onCancel }) {
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-      <div className="bg-white rounded-2xl shadow-lg p-6 max-w-md w-full">
-        <h2 className="text-xl font-semibold text-red-600 mb-4 text-center">
-          Confirm Account Deletion
-        </h2>
-        <p className="text-gray-700 mb-4 text-center">
+      <div className="bg-white rounded-2xl shadow-lg p-6 max-w-md w-full animate-fadeIn">
+        {/* Header */}
+        <div className="flex items-center justify-center gap-2 text-red-600 mb-3">
+          <FaExclamationTriangle className="w-6 h-6" />
+          <h2 className="text-xl font-semibold">Confirm Account Deletion</h2>
+        </div>
+
+        {/* Warning text */}
+        <p className="text-gray-700 mb-4 text-center leading-relaxed">
           This will permanently delete your account and all associated data.
-          <br />
-          Type <strong>DELETE</strong> below to confirm and complete the
-          reCAPTCHA.
+          Please type <strong>DELETE</strong> below and complete the
+          verification.
         </p>
 
+        {/* Type DELETE */}
         <input
           type="text"
           placeholder="Type DELETE"
@@ -31,6 +36,16 @@ function DeleteAccountConfirm({ onConfirm, onCancel }) {
           onChange={(e) => setTextMatch(e.target.value === "DELETE")}
         />
 
+        {/* Google verification message */}
+        <div className="bg-gray-100 rounded-xl px-3 py-2 text-gray-700 text-sm mb-3 flex items-center gap-3">
+          <FaGoogle className="text-blue-600 w-5 h-5" />
+          <span>
+            After this step, Google will ask you to verify your identity for
+            security.
+          </span>
+        </div>
+
+        {/* CAPTCHA */}
         <div className="flex justify-center mb-3">
           <ReCAPTCHA
             sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
@@ -38,6 +53,7 @@ function DeleteAccountConfirm({ onConfirm, onCancel }) {
           />
         </div>
 
+        {/* Buttons */}
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
@@ -45,6 +61,7 @@ function DeleteAccountConfirm({ onConfirm, onCancel }) {
           >
             Cancel
           </button>
+
           <button
             disabled={!isEnabled}
             onClick={onConfirm}
