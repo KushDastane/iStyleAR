@@ -75,7 +75,7 @@ export default function ProtectedLayout() {
     try {
       await signOut(auth);
       toast.success("Logged out successfully!");
-      navigate("/login");
+      navigate("/");
     } catch (error) {
       toast.error(error.message);
     }

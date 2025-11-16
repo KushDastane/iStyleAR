@@ -12,6 +12,10 @@ export default function PrivateRoute({ children }) {
     );
   }
 
+    if (!user && location.pathname === "/") {
+      return children;
+    }
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
