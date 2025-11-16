@@ -7,214 +7,292 @@ import {
   FaSignInAlt,
   FaBars,
   FaTimes,
+  FaChevronRight,
 } from "react-icons/fa";
-import Logo from "../assets/logo.png";
 
 export default function PublicNavbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+
   const navRef = useRef(null);
   const menuRef = useRef(null);
+
   const navigate = useNavigate();
   const location = useLocation();
 
+  /* ------------------------------------
+     MOBILE MENU CONTROLLERS
+  ------------------------------------ */
+  const SECTION_OFFSETS = {
+    about: 60,
+    features: 80,
+    team: 120,
+    "try-free-section": 90,
+  };
+
+  const toggleMenu = () => setOpen((prev) => !prev);
+  const closeMenu = () => setOpen(false);
+
+  /* ------------------------------------
+     Event Listeners (Scroll + Click Outside)
+  ------------------------------------ */
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 60);
     window.addEventListener("scroll", onScroll, { passive: true });
 
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setOpen(false);
-      }
-    };
+      if (!open) return;
 
-    const handleScroll = () => {
-      if (open) {
-        setOpen(false);
+      const clickedHamburger = event.target.closest(".hamburger-btn");
+
+      if (
+        !clickedHamburger &&
+        menuRef.current &&
+        !menuRef.current.contains(event.target)
+      ) {
+        closeMenu();
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("scroll", handleScroll);
     };
   }, [open]);
 
-  // scroll with offset for fixed navbar
+  /* ------------------------------------
+     FIXED SCROLL OFFSET LOGIC
+  ------------------------------------ */
   const scrollToSection = (id) => {
-    const navHeight = navRef.current?.offsetHeight || 80;
-    // try id, then data-section attribute
-    const el =
-      document.getElementById(id) ||
-      document.querySelector(`[data-section="${id}"]`) ||
-      document.querySelector(`a[name="${id}"]`);
+    const el = document.getElementById(id);
     if (!el) return;
-    const top =
-      el.getBoundingClientRect().top + window.pageYOffset - navHeight - 12;
-    window.scrollTo({ top, behavior: "smooth" });
+
+    const navHeight = navRef.current?.offsetHeight || 70;
+
+    const isMobile = window.innerWidth < 768;
+    const EXTRA_DOWN = isMobile ? 450 : 80;
+
+    const y =
+      el.getBoundingClientRect().top + window.scrollY - navHeight + EXTRA_DOWN;
+
+    window.scrollTo({ top: y, behavior: "smooth" });
   };
 
-  // handle clicks (works if user is on other route: navigate to "/" then scroll)
+  /* ------------------------------------
+     HANDLE CLICK ON NAV LINKS
+  ------------------------------------ */
   const handleNavClick = (e, targetId) => {
     e.preventDefault();
-    setOpen(false);
+    closeMenu(); // close menu FIRST
+
     if (location.pathname !== "/") {
       navigate("/");
-      // allow small delay for DOM render then scroll
-      setTimeout(() => scrollToSection(targetId), 120);
+      setTimeout(() => scrollToSection(targetId), 250);
     } else {
-      scrollToSection(targetId);
+      setTimeout(() => scrollToSection(targetId), 50);
     }
   };
 
+  /* ------------------------------------
+     LOGO CLICK GOES TO TOP
+  ------------------------------------ */
   const handleLogoClick = () => {
+    closeMenu();
+
     if (location.pathname !== "/") {
       navigate("/");
-      setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 120);
+      setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 180);
     } else {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
+  /* ------------------------------------
+     NAV LINKS
+  ------------------------------------ */
+  const navLinks = [
+    { id: "about", label: "About", icon: FaTshirt },
+    { id: "features", label: "Features", icon: FaCamera },
+    { id: "team", label: "Team", icon: FaUsers },
+  ];
+
   return (
     <nav
       ref={navRef}
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-400 ${
+      className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
         scrolled
-          ? "bg-white/90 backdrop-blur-md shadow-md text-gray-900"
-          : "bg-transparent text-white"
+          ? "bg-white/95 backdrop-blur-lg shadow-lg  border-gray-200"
+          : "bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm"
       }`}
     >
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-5 py-3">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
         <div
           onClick={handleLogoClick}
-          className="flex items-center gap-2 font-bold text-xl cursor-pointer"
+          className="flex items-center gap-3 font-bold text-xl cursor-pointer group"
         >
-          {" "}
-          <FaTshirt
-            className={`text-2xl transition-all duration-200 ${
-              scrolled ? "text-indigo-600" : "text-purple-300"
+          <div
+            className={`p-2 rounded-xl transition-all duration-300 ${
+              scrolled
+                ? "bg-gradient-to-br from-indigo-600 to-purple-600"
+                : "bg-white/20"
+            } group-hover:scale-110 group-hover:rotate-6`}
+          >
+            <FaTshirt className="text-white text-xl" />
+          </div>
+
+          <span
+            className={`transition-colors duration-300 ${
+              scrolled ? "text-gray-900" : "text-white"
             }`}
-          />
-          {/* <img src={Logo} alt="iStyleAR" className="h-10 w-10" /> */}
-          <span>iStyleAR</span>
+          >
+            iStyleAR
+          </span>
         </div>
 
-        {/* Desktop links */}
-        <div className="hidden md:flex items-center space-x-8 text-sm font-medium">
-          <button
-            onClick={(e) => handleNavClick(e, "about")}
-            className="flex items-center gap-2 hover:text-indigo-400 transition"
-          >
-            <FaTshirt className="text-lg" />
-            <span>About</span>
-          </button>
-
-          <button
-            onClick={(e) => handleNavClick(e, "features")}
-            className="flex items-center gap-2 hover:text-indigo-400 transition"
-          >
-            <FaCamera className="text-lg" />
-            <span>Features</span>
-          </button>
-
-          <button
-            onClick={(e) => handleNavClick(e, "team")}
-            className="flex items-center gap-2 hover:text-indigo-400 transition"
-          >
-            <FaUsers className="text-lg" />
-            <span>Team</span>
-          </button>
+        {/* Desktop Links */}
+        <div className="hidden md:flex items-center space-x-2">
+          {navLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <button
+                key={link.id}
+                onClick={(e) => handleNavClick(e, link.id)}
+                className={`group flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-300 ${
+                  scrolled
+                    ? "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+                    : "text-white hover:bg-white/20"
+                }`}
+              >
+                <Icon className="text-base group-hover:scale-110 transition-transform duration-300" />
+                <span>{link.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Desktop action buttons */}
+        {/* Desktop Actions */}
         <div className="hidden sm:flex items-center gap-3">
           <button
             onClick={(e) => handleNavClick(e, "try-free-section")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+            className={`group flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
               scrolled
-                ? "bg-indigo-600 text-white hover:bg-indigo-700"
-                : "bg-white/20 text-white hover:bg-white/30"
+                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700"
+                : "bg-white text-indigo-600 shadow-lg hover:shadow-xl hover:bg-gray-50"
             }`}
           >
             <FaCamera />
-            Try AR
+            <span>Try AR</span>
+            <FaChevronRight className="text-xs opacity-0 -ml-2 group-hover:opacity-100 group-hover:ml-0 transition-all" />
           </button>
 
           <Link
-            to="/login"
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+            to="/register"
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 border-2 ${
               scrolled
-                ? "border border-indigo-600 text-indigo-600 hover:bg-indigo-50"
-                : "border border-white/60 text-white hover:bg-white/20"
+                ? "border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white"
+                : "border-white text-white hover:bg-white hover:text-indigo-600"
             }`}
           >
             <FaSignInAlt />
-            Login
+            <span>Sign Up</span>
           </Link>
         </div>
 
-        {/* Mobile hamburger */}
+        {/* Mobile Hamburger */}
         <button
-          aria-label={open ? "Close menu" : "Open menu"}
-          className="md:hidden ml-2 text-2xl"
-          onClick={() => setOpen((v) => !v)}
+          className={`hamburger-btn md:hidden p-2 rounded-lg transition-all duration-300 ${
+            scrolled
+              ? "text-gray-900 hover:bg-gray-100"
+              : "text-white hover:bg-white/20"
+          }`}
+          onClick={toggleMenu}
         >
-          {open ? <FaTimes /> : <FaBars />}
+          <div className="relative w-6 h-6">
+            <FaBars
+              className={`absolute inset-0 text-2xl transition-all duration-300 ${
+                open ? "opacity-0 rotate-180" : "opacity-100 rotate-0"
+              }`}
+            />
+            <FaTimes
+              className={`absolute inset-0 text-2xl transition-all duration-300 ${
+                open ? "opacity-100 rotate-0" : "opacity-0 rotate-180"
+              }`}
+            />
+          </div>
         </button>
       </div>
 
-      {/* Mobile menu panel */}
+      {/* Mobile Menu Panel */}
       <div
         ref={menuRef}
-        className={`md:hidden transition-all duration-300 origin-top ${
+        className={`md:hidden transition-all duration-500 origin-top ${
           open
-            ? "max-h-screen opacity-100"
-            : "max-h-0 opacity-0 overflow-hidden"
-        } bg-white/95 text-gray-900 shadow-lg`}
+            ? "max-h-screen opacity-100 translate-y-0"
+            : "max-h-0 opacity-0 -translate-y-4 overflow-hidden"
+        } bg-white/98 backdrop-blur-lg shadow-2xl border-t border-gray-200`}
       >
-        <div className="px-6 py-4 flex flex-col gap-3">
-          <button
-            onClick={(e) => handleNavClick(e, "about")}
-            className="text-left flex items-center gap-3 py-2 hover:text-indigo-600"
-          >
-            <FaTshirt /> About
-          </button>
-          <button
-            onClick={(e) => handleNavClick(e, "features")}
-            className="text-left flex items-center gap-3 py-2 hover:text-indigo-600"
-          >
-            <FaCamera /> Features
-          </button>
-          <button
-            onClick={(e) => handleNavClick(e, "team")}
-            className="text-left flex items-center gap-3 py-2 hover:text-indigo-600"
-          >
-            <FaUsers /> Team
-          </button>
+        <div className="px-6 py-6 flex flex-col gap-2">
+          {navLinks.map((link, i) => {
+            const Icon = link.icon;
+            return (
+              <button
+                key={link.id}
+                onClick={(e) => handleNavClick(e, link.id)}
+                className={`group text-left flex items-center gap-4 px-4 py-3.5 rounded-xl text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-300 transform hover:translate-x-2 ${
+                  open ? "animate-slideIn" : ""
+                }`}
+                style={{ animationDelay: `${i * 60}ms` }}
+              >
+                <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-indigo-100 transition-colors">
+                  <Icon className="text-lg" />
+                </div>
+                <span className="font-medium">{link.label}</span>
+                <FaChevronRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            );
+          })}
 
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-4 pt-4 border-t border-gray-200 flex flex-col gap-3">
             <button
               onClick={(e) => handleNavClick(e, "try-free-section")}
-              className="px-4 py-3 rounded bg-indigo-600 text-white text-center"
+              className="group flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105"
             >
-              Try AR
+              <FaCamera />
+              <span>Try AR Now</span>
+              <FaChevronRight className="text-xs" />
             </button>
+
             <Link
-              to="/login"
-              onClick={() => setOpen(false)}
-              className="px-4 py-3 rounded border border-gray-300 text-center"
+              to="/register"
+              onClick={closeMenu}
+              className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border-2 border-indigo-600 text-indigo-600 font-semibold hover:bg-indigo-600 hover:text-white transition-all"
             >
-              Login
+              <FaSignInAlt />
+              <span>Sign Up</span>
             </Link>
           </div>
         </div>
       </div>
+
+      {/* ANIMATIONS */}
+      <style jsx>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .animate-slideIn {
+          animation: slideIn 0.4s ease-out forwards;
+        }
+      `}</style>
     </nav>
   );
 }
