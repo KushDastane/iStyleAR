@@ -123,12 +123,12 @@ export default function PublicNavbar() {
       ref={navRef}
       className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
         scrolled
-          ? "bg-white/95 backdrop-blur-lg shadow-lg  border-gray-200"
+          ? "bg-white/95 backdrop-blur-lg shadow-lg border-gray-200"
           : "bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm"
       }`}
     >
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
-        {/* Logo */}
+      <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        {/* LEFT — LOGO */}
         <div
           onClick={handleLogoClick}
           className="flex items-center gap-3 font-bold text-xl cursor-pointer group"
@@ -152,8 +152,8 @@ export default function PublicNavbar() {
           </span>
         </div>
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex items-center space-x-2">
+        {/* CENTER — PERFECTLY CENTERED NAV LINKS */}
+        <div className="hidden md:flex items-center space-x-2 absolute left-1/2 -translate-x-1/2">
           {navLinks.map((link) => {
             const Icon = link.icon;
             return (
@@ -173,7 +173,7 @@ export default function PublicNavbar() {
           })}
         </div>
 
-        {/* Desktop Actions */}
+        {/* RIGHT — ACTION BUTTONS */}
         <div className="hidden sm:flex items-center gap-3">
           <button
             onClick={(e) => handleNavClick(e, "try-free-section")}
@@ -201,7 +201,7 @@ export default function PublicNavbar() {
           </Link>
         </div>
 
-        {/* Mobile Hamburger */}
+        {/* MOBILE HAMBURGER */}
         <button
           className={`hamburger-btn md:hidden p-2 rounded-lg transition-all duration-300 ${
             scrolled
@@ -224,7 +224,6 @@ export default function PublicNavbar() {
           </div>
         </button>
       </div>
-
       {/* Mobile Menu Panel */}
       <div
         ref={menuRef}
@@ -295,4 +294,5 @@ export default function PublicNavbar() {
       `}</style>
     </nav>
   );
+
 }
