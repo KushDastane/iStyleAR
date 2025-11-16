@@ -21,6 +21,7 @@ export default function ProtectedLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  console.log("NAVBAR USER:", user);
   const menuRef = useRef(null);
   const { wardrobeItems } = useWardrobe();
 
@@ -146,7 +147,7 @@ export default function ProtectedLayout() {
               >
                 <FaShoppingCart className="w-5 h-5" />
                 <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full font-bold">
-                 {wardrobeItems.length}
+                  {wardrobeItems.length}
                 </span>
               </button>
 
@@ -160,7 +161,11 @@ export default function ProtectedLayout() {
                 }`}
               >
                 <img
-                  src={user.avatar || "/defaultpfp.png"}
+                  src={
+                    user?.avatar && user.avatar.trim() !== ""
+                      ? user.avatar
+                      : "/defaultpfp.png"
+                  }
                   alt="Profile"
                   className="w-9 h-9 rounded-full object-cover"
                 />

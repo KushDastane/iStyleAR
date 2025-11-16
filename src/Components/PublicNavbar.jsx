@@ -189,7 +189,7 @@ export default function PublicNavbar() {
           </button>
 
           <Link
-            to="/register"
+            to="/login"
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 border-2 ${
               scrolled
                 ? "border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white"
@@ -197,7 +197,7 @@ export default function PublicNavbar() {
             }`}
           >
             <FaSignInAlt />
-            <span>Sign Up</span>
+            <span>Sign In</span>
           </Link>
         </div>
 
@@ -265,12 +265,12 @@ export default function PublicNavbar() {
             </button>
 
             <Link
-              to="/register"
+              to="/login"
               onClick={closeMenu}
               className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border-2 border-indigo-600 text-indigo-600 font-semibold hover:bg-indigo-600 hover:text-white transition-all"
             >
               <FaSignInAlt />
-              <span>Sign Up</span>
+              <span>Sign In</span>
             </Link>
           </div>
         </div>

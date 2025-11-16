@@ -35,5 +35,9 @@ try {
   db = null;
   storage = null;
 }
+// Make Firebase auth visible in browser console for debugging
+if (typeof window !== "undefined") {
+  window.auth = auth;
+}
 
 export { auth, db, storage };

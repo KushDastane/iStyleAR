@@ -223,10 +223,10 @@ export default function TryFreePage() {
           </p>
 
           <a
-            href="/register"
+            href="/login"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm hover:shadow-md group"
           >
-            Sign Up for more
+            Sign In for more
             <FaArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
           </a>
         </div>

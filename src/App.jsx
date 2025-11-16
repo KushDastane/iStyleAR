@@ -7,7 +7,6 @@ import { RecommendationProvider } from "./context/RecommendationContext";
 import HomePage from "./pages/Home/HomePage";
 import TryFreePage from "./pages/TryFree/TryFreePage";
 import Login from "./pages/Auth/Login";
-import Register from "./pages/Auth/Register";
 
 // User Pages
 import Dashboard from "./pages/User/Dashboard";
@@ -32,7 +31,6 @@ function AppRoutes() {
       {/* ---------- PUBLIC ROUTES ---------- */}
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
       <Route path="/try-free" element={<TryFreePage />} />
 
       {/* ---------- PROTECTED ROUTES ---------- */}

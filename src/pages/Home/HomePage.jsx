@@ -167,7 +167,7 @@ export default function HomePage() {
               onClick={() => (window.location.href = "/login")}
               className="px-6 py-3 sm:px-8 sm:py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-xl font-semibold text-sm sm:text-lg hover:bg-white/20 transform hover:scale-[1.02] transition-all duration-300 shadow-lg"
             >
-              Login
+              Sign In
             </button>
           </motion.div>
 
@@ -226,7 +226,7 @@ export default function HomePage() {
 
         {/* Scroll Down Indicator – hidden on mobile to avoid overlap */}
         <motion.div
-          className="hidden sm:flex absolute bottom-8 flex-col items-center gap-2 z-10"
+          className="flex absolute bottom-3 flex-col items-center gap-2 z-10"
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         >
