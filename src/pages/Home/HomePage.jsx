@@ -226,7 +226,7 @@ export default function HomePage() {
 
         {/* Scroll Down Indicator – hidden on mobile to avoid overlap */}
         <motion.div
-          className="flex absolute bottom-10 md:bottom-8 flex-col items-center gap-2 z-10"
+          className="flex absolute bottom-14 md:bottom-8 flex-col items-center gap-2 z-10"
           animate={{ y: [0, 8, 0] }}
           transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
         >
