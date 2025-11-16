@@ -9,11 +9,18 @@ import {
   collection,
   getDocs,
 } from "firebase/firestore";
-import { GoogleAuthProvider } from "firebase/auth";
+
+import {
+  GoogleAuthProvider,
+  reauthenticateWithPopup,
+  deleteUser,
+} from "firebase/auth";
+
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import DeleteAccountConfirm from "../../Components/DeleteAccountConfirm";
 import axios from "axios";
+
 import {
   FaUser,
   FaCamera,
@@ -238,35 +245,38 @@ export default function ProfileSetup() {
     setShowConfirm(true);
   };
 
-  const confirmDelete = async () => {
-    try {
-      if (!user) return;
+const confirmDelete = async () => {
+  try {
+    if (!user) return;
 
-      // Reauthenticate the user before deletion
-      const provider = new GoogleAuthProvider();
-      provider.addScope("email");
-      provider.addScope("profile");
-      provider.addScope("https://www.googleapis.com/auth/userinfo.profile");
-      provider.setCustomParameters({
-        prompt: "select_account",
-      });
-      await user.reauthenticateWithPopup(provider);
+    // Create Google provider for re-auth
+    const provider = new GoogleAuthProvider();
+    provider.addScope("email");
+    provider.addScope("profile");
+    provider.setCustomParameters({ prompt: "select_account" });
 
-      // Delete Firestore user document
-      await updateDoc(doc(db, "users", user.uid), { deleted: true }); // optional: soft delete flag
+    // 🔥 Correct modular SDK syntax
+    await reauthenticateWithPopup(user, provider);
 
-      // Delete auth account
-      await user.delete();
+    // Optional: mark user as deleted in Firestore
+    await updateDoc(doc(db, "users", user.uid), {
+      deleted: true,
+      deletedAt: new Date(),
+    });
 
-      toast.success("Your account has been permanently deleted");
-      navigate("/");
-    } catch (error) {
-      console.error("Error deleting account:", error);
-      toast.error(`Failed to delete account: ${error.message}`);
-    } finally {
-      setShowConfirm(false);
-    }
-  };
+    // 🔥 Correct modular delete
+    await deleteUser(user);
+
+    toast.success("Your account has been permanently deleted");
+    navigate("/");
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    toast.error(`Failed to delete account: ${error.message}`);
+  } finally {
+    setShowConfirm(false);
+  }
+};
+
 
   if (isLoading) {
     return (
