@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Listbox } from "@headlessui/react";
 import { useAuth } from "../../context/AuthContext";
 import { db } from "../../firebase/config";
+import { getAuth } from "firebase/auth";
 import {
   doc,
   getDoc,
@@ -247,25 +248,31 @@ export default function ProfileSetup() {
 
 const confirmDelete = async () => {
   try {
-    if (!user) return;
+    const auth = getAuth(); // ALWAYS GET REAL AUTH INSTANCE
+    const currentUser = auth.currentUser;
 
-    // Create Google provider for re-auth
+    if (!currentUser) {
+      toast.error("User not found in Firebase Auth");
+      return;
+    }
+
+    // Google provider
     const provider = new GoogleAuthProvider();
     provider.addScope("email");
     provider.addScope("profile");
     provider.setCustomParameters({ prompt: "select_account" });
 
-    // 🔥 Correct modular SDK syntax
-    await reauthenticateWithPopup(user, provider);
+    // ✅ Use auth.currentUser instead of context user
+    await reauthenticateWithPopup(currentUser, provider);
 
-    // Optional: mark user as deleted in Firestore
-    await updateDoc(doc(db, "users", user.uid), {
+    // Optional soft delete in Firestore
+    await updateDoc(doc(db, "users", currentUser.uid), {
       deleted: true,
       deletedAt: new Date(),
     });
 
-    // 🔥 Correct modular delete
-    await deleteUser(user);
+    // Delete Auth user
+    await deleteUser(currentUser);
 
     toast.success("Your account has been permanently deleted");
     navigate("/");
