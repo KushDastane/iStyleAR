@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Listbox } from "@headlessui/react";
 import { useAuth } from "../../context/AuthContext";
-import { db } from "../../firebase/config";
+import { db, auth } from "../../firebase/config";
 import {
   doc,
   getDoc,
@@ -9,7 +9,7 @@ import {
   collection,
   getDocs,
 } from "firebase/firestore";
-import { GoogleAuthProvider, reauthenticateWithPopup } from "firebase/auth";
+import { GoogleAuthProvider } from "firebase/auth";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import DeleteAccountConfirm from "../../Components/DeleteAccountConfirm";
@@ -240,17 +240,17 @@ export default function ProfileSetup() {
 
   const confirmDelete = async () => {
     try {
-      if (!user) return;
+      if (!user || !auth.currentUser) return;
 
       // Reauthenticate the user before deletion
       const provider = new GoogleAuthProvider();
-      await reauthenticateWithPopup(user, provider);
+      await auth.currentUser.reauthenticateWithPopup(provider);
 
       // Delete Firestore user document
       await updateDoc(doc(db, "users", user.uid), { deleted: true }); // optional: soft delete flag
 
       // Delete auth account
-      await user.delete();
+      await auth.currentUser.delete();
 
       toast.success("Your account has been permanently deleted");
       navigate("/");
