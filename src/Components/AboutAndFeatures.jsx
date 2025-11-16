@@ -1,8 +1,10 @@
 // eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
-import { FaTshirt, FaShareAlt, FaFolderOpen, FaUpload } from "react-icons/fa";
+import { FaShareAlt, FaFolderOpen, FaUpload } from "react-icons/fa";
 import { GiClothes } from "react-icons/gi";
 import { HiArrowRight } from "react-icons/hi";
+
+import { TbHandClick } from "react-icons/tb";
 import About from "../assets/hero/about3.png";
 
 export default function AboutAndFeatures({
@@ -309,9 +311,9 @@ export default function AboutAndFeatures({
               iconBg: "from-purple-500 to-purple-600",
             },
             {
-              icon: <FaTshirt size={42} />,
-              title: "Mix & Match",
-              desc: "Combine unlimited clothing and accessories to create unique, personalized looks.",
+              icon: <TbHandClick size={42} />,
+              title: "Gesture Controls",
+              desc: "Hands-free experience powered by hand gesture controls.",
               gradient: "from-blue-500/20 to-blue-600/20",
               iconBg: "from-blue-500 to-blue-600",
             },
