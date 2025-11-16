@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Listbox } from "@headlessui/react";
 import { useAuth } from "../../context/AuthContext";
-import { db, auth } from "../../firebase/config";
+import { db } from "../../firebase/config";
 import {
   doc,
   getDoc,
@@ -240,23 +240,29 @@ export default function ProfileSetup() {
 
   const confirmDelete = async () => {
     try {
-      if (!user || !auth.currentUser) return;
+      if (!user) return;
 
       // Reauthenticate the user before deletion
       const provider = new GoogleAuthProvider();
-      await auth.currentUser.reauthenticateWithPopup(provider);
+      provider.addScope("email");
+      provider.addScope("profile");
+      provider.addScope("https://www.googleapis.com/auth/userinfo.profile");
+      provider.setCustomParameters({
+        prompt: "select_account",
+      });
+      await user.reauthenticateWithPopup(provider);
 
       // Delete Firestore user document
       await updateDoc(doc(db, "users", user.uid), { deleted: true }); // optional: soft delete flag
 
       // Delete auth account
-      await auth.currentUser.delete();
+      await user.delete();
 
       toast.success("Your account has been permanently deleted");
       navigate("/");
     } catch (error) {
       console.error("Error deleting account:", error);
-      toast.error("Failed to delete account. Please reauthenticate.");
+      toast.error(`Failed to delete account: ${error.message}`);
     } finally {
       setShowConfirm(false);
     }
