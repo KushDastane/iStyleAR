@@ -66,6 +66,12 @@ export default function UserTryOn() {
   const [showWakeModal, setShowWakeModal] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
+  // computed health url used by modal
+  const BACKEND = import.meta.env.VITE_API_URL || "";
+  const healthUrl = BACKEND
+    ? `${BACKEND.replace(/\/$/, "")}/health`
+    : "/health";
+
   // Scroll into view on mount
   useEffect(() => {
     if (cameraSectionRef.current) {
@@ -162,9 +168,11 @@ export default function UserTryOn() {
 
       setHighlightLive(true);
       setTimeout(() => setHighlightLive(false), 4000);
+      return s;
     } catch (err) {
       console.error(err);
       alert("Unable to access webcam. Please allow camera permissions.");
+      throw err;
     }
   };
 
@@ -206,6 +214,9 @@ export default function UserTryOn() {
       try {
         const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
         const dressIdAtRequestTime = currentDress.id;
+
+        // debug log (optional) - remove in prod
+        // console.log("Posting frame to:", `${import.meta.env.VITE_API_URL}/tryon`);
 
         const response = await axios.post(
           `${import.meta.env.VITE_API_URL}/tryon`,
@@ -476,6 +487,44 @@ export default function UserTryOn() {
     }
 
     setUploading(false);
+  };
+
+  // ---------------- Wake modal integration ----------------
+
+  const handleStartClick = async () => {
+    setIsStarting(true);
+    setShowWakeModal(true);
+
+    // optimistic ping to wake server quickly
+    try {
+      fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => {});
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleBackendReady = async () => {
+    // modal detected backend is live
+    setShowWakeModal(false);
+
+    // Ensure webcam/permission is available — if not, start webcam
+    try {
+      if (!stream) {
+        await startWebcam();
+        // small delay to allow video element to attach and metadata to load
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    } catch (e) {
+      // user denied camera or error — abort start
+      setIsStarting(false);
+      return;
+    }
+
+    // Start actual live try-on
+    startLiveTryOn();
+
+    // allow button to be clickable again (the live try-on UI has separate stop)
+    setIsStarting(false);
   };
 
   // ---------------- UI ----------------
@@ -807,16 +856,17 @@ export default function UserTryOn() {
                   </button>
                 ) : !isLiveTryOn ? (
                   <button
-                    onClick={startLiveTryOn}
+                    onClick={handleStartClick}
                     className={`flex flex-col items-center group ${
                       highlightLive ? "animate-pulse" : ""
                     }`}
+                    disabled={isStarting}
                   >
                     <div className="w-11 h-11 rounded-full flex items-center justify-center bg-purple-50 border border-purple-200 group-hover:bg-purple-100 transition">
                       <FaMagic className="text-xl text-purple-600" />
                     </div>
                     <span className="text-[11px] font-medium mt-1 text-purple-700">
-                      Live
+                      {isStarting ? "Starting..." : "Live"}
                     </span>
                   </button>
                 ) : (
@@ -901,6 +951,17 @@ export default function UserTryOn() {
           )}
         </div>
       </div>
+
+      {/* AR Wake-up modal (mascot) */}
+      <ARWakeUpModal
+        open={showWakeModal}
+        healthUrl={healthUrl}
+        onReady={handleBackendReady}
+        onClose={() => {
+          setShowWakeModal(false);
+          setIsStarting(false);
+        }}
+      />
     </div>
   );
 }
