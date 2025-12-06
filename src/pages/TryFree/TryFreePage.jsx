@@ -9,6 +9,7 @@ import {
   FaPlay,
   FaRedo,
 } from "react-icons/fa";
+import ARWakeUpModal from "../../Components/ARWakeUpModal";
 
 export default function TryFreePage() {
   const [selectedDress, setSelectedDress] = useState(null);
@@ -23,6 +24,13 @@ export default function TryFreePage() {
   const isLiveTryOnRef = useRef(false);
   const lastOverlayRef = useRef(null);
   const BACKEND = import.meta.env.VITE_API_URL || "";
+  const [showWakeModal, setShowWakeModal] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+
+  // computed health url used by modal
+  const healthUrl = BACKEND
+    ? `${BACKEND.replace(/\/$/, "")}/health`
+    : "/health";
 
   const demoClothes = [
     {
@@ -86,9 +94,11 @@ export default function TryFreePage() {
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+      return mediaStream;
     } catch (err) {
       console.error("Error accessing webcam:", err);
       alert("Unable to access webcam. Please allow camera permissions.");
+      throw err;
     }
   };
 
@@ -204,6 +214,50 @@ export default function TryFreePage() {
     processingRef.current = false;
     setLoading(false);
   };
+
+  // -------------------------
+  // New: handleStartClick + onReady handler for the Wake modal
+  // -------------------------
+  const handleStartClick = async () => {
+    // prevent double clicks
+    setIsStarting(true);
+    // show the mascot modal which will poll healthUrl
+    setShowWakeModal(true);
+
+    // optimistic ping to wake server quickly
+    try {
+      fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => {});
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const handleBackendReady = async () => {
+    // modal detected backend is live
+    // keep the mascot animation smooth: close modal (it has ready animation)
+    setShowWakeModal(false);
+
+    // Ensure webcam/permission is available — if not, start webcam
+    try {
+      if (!stream) {
+        await startWebcam();
+        // small delay to allow video element to attach and metadata to load
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    } catch (e) {
+      // user denied camera or error — abort start
+      setIsStarting(false);
+      return;
+    }
+
+    // Start actual live try-on
+    startLiveTryOn();
+
+    // allow button to be clickable again (the live try-on UI has separate stop)
+    setIsStarting(false);
+  };
+
+  // -------------------------
 
   return (
     <section className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 py-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -386,11 +440,12 @@ export default function TryFreePage() {
 
                     {stream && selectedDress && !isLiveTryOn && (
                       <button
-                        onClick={startLiveTryOn}
+                        onClick={handleStartClick}
                         className="w-full px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+                        disabled={isStarting}
                       >
                         <FaPlay className="w-3 h-3" />
-                        Start Try-On
+                        {isStarting ? "Starting..." : "Start Try-On"}
                       </button>
                     )}
 
@@ -435,6 +490,17 @@ export default function TryFreePage() {
           </div>
         </div>
       </div>
+
+      {/* AR Wake-up modal (mascot) */}
+      <ARWakeUpModal
+        open={showWakeModal}
+        healthUrl={healthUrl}
+        onReady={handleBackendReady}
+        onClose={() => {
+          setShowWakeModal(false);
+          setIsStarting(false);
+        }}
+      />
     </section>
   );
 }

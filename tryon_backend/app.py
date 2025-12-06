@@ -82,6 +82,10 @@ def downsize_pil_image(img, max_w=512):
 # ----------------------
 # Routes
 # ----------------------
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"ok": True}), 200
+
 @app.route("/")
 def home():
     return jsonify({"message": "Try-On Backend is live 🚀"})

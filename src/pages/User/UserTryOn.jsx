@@ -12,6 +12,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import CreativeCarousel from "../../Components/CreativeCarousel";
+import ARWakeUpModal from "../../Components/ARWakeUpModal";
 import { FaRegEye, FaMagic, FaCamera, FaStop } from "react-icons/fa";
 import axios from "axios";
 
@@ -61,6 +62,9 @@ export default function UserTryOn() {
 
   const captureButtonRef = useRef(null);
   const cameraSectionRef = useRef(null);
+
+  const [showWakeModal, setShowWakeModal] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   // Scroll into view on mount
   useEffect(() => {
