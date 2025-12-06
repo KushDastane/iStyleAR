@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FaTimes } from "react-icons/fa";
 
-
 export default function ARWakeUpModal({
   healthUrl = "/health",
   onReady = () => {},
@@ -14,13 +13,14 @@ export default function ARWakeUpModal({
   const [message, setMessage] = useState("Initializing connection...");
   const [progressValue, setProgressValue] = useState(0); // visual progress 0-100
 
-  const pollingRef = useRef(null); // timeout id for exponential backoff
-  const rapidRef = useRef(null); // interval id for rapid polling
-  const rampRef = useRef(null); // interval id for visual progress ramp
-  const abortRef = useRef(null); // AbortController for the currently active fetch
+  const pollingRef = useRef(null);
+  const rapidRef = useRef(null);
+  const rampRef = useRef(null);
+  const abortRef = useRef(null);
   const cancelledRef = useRef(false);
   const readyNotifiedRef = useRef(false);
-  
+
+  const [nudge, setNudge] = useState(false);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -34,7 +34,14 @@ export default function ARWakeUpModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // ---- Visibility / focus handlers ----
+  useEffect(() => {
+    if (tries > 0 && status !== "ready") {
+      setNudge(true);
+      const t = setTimeout(() => setNudge(false), 900);
+      return () => clearTimeout(t);
+    }
+  }, [tries, status]);
+
   useEffect(() => {
     if (!open) return;
     const onFocusOrVisible = () => {
@@ -51,12 +58,10 @@ export default function ARWakeUpModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, status]);
 
-  // close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
       if (e.key === "Escape") {
-        // stop background work and inform parent
         cleanupAll();
         onClose();
       }
@@ -66,11 +71,8 @@ export default function ARWakeUpModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  function removeVisibilityHandlers() {
-    /* kept for symmetry */
-  }
+  function removeVisibilityHandlers() {}
 
-  // ---- Cleanup helpers ----
   function clearPollingTimeout() {
     if (pollingRef.current) {
       clearTimeout(pollingRef.current);
@@ -104,7 +106,6 @@ export default function ARWakeUpModal({
     abortFetch();
   }
 
-  // ---- Start / Stop ----
   function startCheck() {
     cleanupAll();
     setStatus("checking");
@@ -113,7 +114,7 @@ export default function ARWakeUpModal({
     cancelledRef.current = false;
     readyNotifiedRef.current = false;
     setProgressValue(0);
-    startProgressRamp(); // start visual ramp
+    startProgressRamp();
     doPoll(0);
   }
 
@@ -125,7 +126,7 @@ export default function ARWakeUpModal({
 
   function handleCancel() {
     cancelledRef.current = true;
-    cleanupAll(); // abort any in-flight fetch and clear timers
+    cleanupAll();
     setStatus("error");
     setMessage("Connection attempt cancelled.");
   }
@@ -134,55 +135,42 @@ export default function ARWakeUpModal({
     startCheck();
   }
 
-  // ---- Visual ramping logic ----
   function startProgressRamp() {
     clearRampInterval();
-    // ramp every 700ms
     rampRef.current = setInterval(() => {
       setProgressValue((prev) => {
         if (cancelledRef.current) return prev;
-        // determine a dynamic cap depending on status & tries
         let cap;
         if (status === "checking") cap = 20;
         else if (status === "sleeping") cap = 40;
         else if (status === "waking") {
-          // near-end cap grows with attempts so it doesn't get stuck at low %.
           cap = Math.min(95, 30 + tries * 12 + Math.floor(Math.random() * 6));
-        } else if (status === "error") cap = prev; // freeze on error
+        } else if (status === "error") cap = prev;
         else cap = 95;
 
-        // if we're already at or above cap, don't grow further (until status changes)
         if (prev >= cap) return prev;
-
-        // add an adaptive increment (bigger early, smaller near cap)
         const distance = cap - prev;
-        const inc = Math.max(1, Math.ceil(distance / 12)); // smooth step
+        const inc = Math.max(1, Math.ceil(distance / 12));
         return Math.min(cap, prev + inc);
       });
     }, 700);
   }
 
-  // If status changes (ex: from checking -> waking) restart ramp to pick new cap
   useEffect(() => {
-    // restart ramp to use new cap when status or tries changes
     if (open && status !== "ready" && status !== "error") {
       startProgressRamp();
     }
     if (status === "ready") {
-      // ensure progress goes to 100 when ready
       setProgressValue(100);
       clearRampInterval();
-      // delay slightly to allow progress bar animation to finish before notifying
       const afterAnim = setTimeout(() => {
         if (!readyNotifiedRef.current) {
           readyNotifiedRef.current = true;
           try {
             onReady();
-          } catch (e) {
-            /* swallow callback errors */
-          }
+          } catch (e) {}
         }
-      }, 650); // must match motion transition ~600ms
+      }, 650);
       return () => clearTimeout(afterAnim);
     }
     if (status === "error") {
@@ -191,7 +179,6 @@ export default function ARWakeUpModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tries, open]);
 
-  // ---- Immediate one-shot poll used on focus/visibility ----
   function doImmediatePoll() {
     if (abortRef.current) return;
     const controller = new AbortController();
@@ -205,25 +192,20 @@ export default function ARWakeUpModal({
       .then((res) => {
         if (controller.signal.aborted || cancelledRef.current) return;
         if (res.ok) {
-          // immediate success -> go ready (but onReady will be invoked after progress anim completes)
           finalizeReady();
         }
       })
-      .catch(() => {
-        // ignore errors for one-shot
-      })
+      .catch(() => {})
       .finally(() => {
         if (abortRef.current === controller) abortRef.current = null;
       });
   }
 
-  // ---- Primary poll with exponential backoff ----
   function doPoll(n) {
     if (cancelledRef.current) return;
     const attempt = n + 1;
     setTries(attempt);
 
-    // ensure single active fetch: abort previous if any
     abortFetch();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -236,7 +218,6 @@ export default function ARWakeUpModal({
       .then((res) => {
         if (controller.signal.aborted || cancelledRef.current) return;
         if (res.ok) {
-          // server became ready
           finalizeReady();
         } else {
           scheduleNextAttempt(attempt);
@@ -252,14 +233,11 @@ export default function ARWakeUpModal({
   }
 
   function finalizeReady() {
-    // stop background polling, but visually complete progress first
-    stopCheck(); // stops timers but does not call onReady yet
+    stopCheck();
     setStatus("ready");
     setMessage("Connection established. Ready to proceed.");
-    // setProgressValue(100) is handled by status effect above
   }
 
-  // When waking, schedule exponential next attempt + rapid poll
   function scheduleNextAttempt(attemptNumber) {
     if (cancelledRef.current) return;
 
@@ -291,7 +269,6 @@ export default function ARWakeUpModal({
     }, nextDelay);
 
     if (!rapidRef.current) {
-      // quick detection poll every 2s while warming
       rapidRef.current = setInterval(() => {
         if (abortRef.current || cancelledRef.current) return;
         const controller = new AbortController();
@@ -307,9 +284,7 @@ export default function ARWakeUpModal({
               finalizeReady();
             }
           })
-          .catch(() => {
-            // ignore
-          })
+          .catch(() => {})
           .finally(() => {
             if (abortRef.current === controller) abortRef.current = null;
           });
@@ -317,10 +292,8 @@ export default function ARWakeUpModal({
     }
   }
 
-  // Progress is driven by progressValue state; motion will animate
   const progress = Math.max(0, Math.min(100, Math.round(progressValue)));
 
-  // UI config (same)
   const statusConfig = {
     checking: {
       color: "text-blue-700",
@@ -364,12 +337,11 @@ export default function ARWakeUpModal({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
+              className="relative w-full max-w-lg sm:max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
               role="dialog"
               aria-modal="true"
             >
-              {/* Close button (FaTimes) */}
-              {/* Close button (FaTimes) */}
+              {/* Close button (smaller and adjusted for mobile) */}
               <button
                 type="button"
                 aria-label="Close dialog"
@@ -377,11 +349,11 @@ export default function ARWakeUpModal({
                   cleanupAll();
                   onClose();
                 }}
-                className="absolute right-5 top-5 inline-flex items-center justify-center
-             w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600
+                className="absolute right-4 top-4 inline-flex items-center justify-center
+             w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600
              shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 pointer-events-auto cursor-pointer"
               >
-                <FaTimes className="w-4 h-4" />
+                <FaTimes className="w-3.5 h-3.5" />
               </button>
 
               <div
@@ -402,33 +374,37 @@ export default function ARWakeUpModal({
                 />
               </div>
 
-              <div className="p-8">
-                <div className="flex flex-col md:flex-row gap-8 items-center">
-                  <div className="w-48 h-48 flex-shrink-0 flex items-center justify-center">
-                    <ServerMascot status={status} />
+              <div className="p-6 sm:p-8">
+                {/* stacked on mobile, row on small+ */}
+                <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-center">
+                  <div className="w-full sm:w-48 flex-shrink-0 flex items-center justify-center">
+                    {/* responsive mascot sizing */}
+                    <div className="w-32 h-32 sm:w-48 sm:h-48">
+                      <ServerMascot status={status} nudge={nudge} />
+                    </div>
                   </div>
 
                   <div className="flex-1 w-full">
-                    <div className="mb-6">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-2xl font-bold text-slate-900">
+                    <div className="mb-4 sm:mb-6">
+                      <div className="flex items-center gap-3 mb-2 sm:mb-3">
+                        <h3 className="text-lg sm:text-2xl font-bold text-slate-900">
                           {status === "ready"
                             ? "Connection Ready"
                             : "Initializing Server"}
                         </h3>
                         <StatusBadge status={status} config={currentConfig} />
                       </div>
-                      <p className="text-slate-600 leading-relaxed">
+                      <p className="text-slate-600 leading-relaxed text-sm sm:text-base">
                         {message}
                       </p>
                     </div>
 
-                    <div className="mb-6 space-y-3">
-                      <div className="flex justify-between items-center text-xs font-medium">
+                    <div className="mb-4 sm:mb-6 space-y-3">
+                      <div className="flex justify-between items-center text-xs sm:text-sm font-medium">
                         <span className="text-slate-500">
                           {status === "ready" ? "Complete" : "In Progress"}
                         </span>
-                        <span className={currentConfig.color}>
+                        <span className={`${currentConfig.color} text-sm`}>
                           {status === "ready" ? "100%" : `${progress}%`}
                         </span>
                       </div>
@@ -461,7 +437,7 @@ export default function ARWakeUpModal({
                     <div className="flex flex-col sm:flex-row gap-3">
                       {status === "ready" ? (
                         <button
-                          className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold shadow-lg"
+                          className="w-full sm:flex-1 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold shadow-lg"
                           onClick={onClose}
                         >
                           Continue to AR Experience
@@ -469,13 +445,13 @@ export default function ARWakeUpModal({
                       ) : (
                         <>
                           <button
-                            className="flex-1 px-6 py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50"
+                            className="w-full sm:flex-1 px-5 py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50"
                             onClick={handleManualRetry}
                           >
                             Retry Now
                           </button>
                           <button
-                            className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                            className="w-full sm:flex-1 px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
                             onClick={handleCancel}
                           >
                             Cancel
@@ -484,7 +460,7 @@ export default function ARWakeUpModal({
                       )}
                     </div>
 
-                    <div className="mt-6 pt-6 border-t border-slate-100">
+                    <div className="mt-5 pt-5 border-t border-slate-100">
                       <div className="flex items-start gap-3 text-sm">
                         <svg
                           className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5"
@@ -500,13 +476,13 @@ export default function ARWakeUpModal({
                           />
                         </svg>
                         <div className="space-y-1">
-                          <p className="text-slate-600">
+                          <p className="text-slate-600 text-sm">
                             <span className="font-medium">Attempt {tries}</span>{" "}
                             · Server instances spin down during inactivity to
                             save resources
                           </p>
                           {tries > 8 && status !== "ready" && (
-                            <p className="text-amber-600 font-medium">
+                            <p className="text-amber-600 font-medium text-sm">
                               Taking longer than expected. Check system status
                               if this persists.
                             </p>
@@ -557,8 +533,8 @@ function StatusBadge({ status, config }) {
   );
 }
 
-/* ServerMascot: eyes closed until ready; waking does intermittent shake (repeatDelay built in) */
-function ServerMascot({ status = "checking" }) {
+/* ServerMascot: supports 'nudge' and responsive sizing */
+function ServerMascot({ status = "checking", nudge = false }) {
   const containerVariants = {
     idle: { scale: 1, rotate: 0 },
     wake: {
@@ -577,20 +553,31 @@ function ServerMascot({ status = "checking" }) {
       rotate: [0, 3, -3, 0],
       transition: { duration: 0.9, ease: "easeOut" },
     },
+    nudge: {
+      x: [0, -6, 6, -4, 3, 0],
+      rotate: [0, -6, 6, -4, 2, 0],
+      transition: { duration: 0.75, ease: "easeInOut" },
+    },
   };
+
   const isOpenEyes = status === "ready";
+  const activeAnim = nudge
+    ? "nudge"
+    : status === "ready"
+    ? "ready"
+    : status === "waking"
+    ? "wake"
+    : "idle";
 
   return (
     <motion.div
-      className="relative w-44 h-44 flex items-center justify-center"
+      className="relative w-full h-full flex items-center justify-center"
       variants={containerVariants}
-      animate={
-        status === "ready" ? "ready" : status === "waking" ? "wake" : "idle"
-      }
+      animate={activeAnim}
     >
       <motion.svg
         viewBox="0 0 140 140"
-        className="w-44 h-44 drop-shadow-xl"
+        className="w-full h-full drop-shadow-xl"
         role="img"
         aria-label="server mascot"
       >
@@ -661,7 +648,6 @@ function ServerMascot({ status = "checking" }) {
           </g>
         </g>
 
-        {/* Eyes closed unless ready */}
         {!isOpenEyes ? (
           <g>
             <motion.line
@@ -712,7 +698,6 @@ function ServerMascot({ status = "checking" }) {
           </g>
         )}
 
-        {/* Mouth */}
         {status === "ready" ? (
           <motion.path
             d="M58 78 Q70 88 82 78"
@@ -736,7 +721,6 @@ function ServerMascot({ status = "checking" }) {
           />
         )}
 
-        {/* Status dots */}
         <g>
           <motion.circle
             cx="38"
@@ -769,7 +753,6 @@ function ServerMascot({ status = "checking" }) {
         </g>
       </motion.svg>
 
-      {/* waking bell (intermittent) */}
       <AnimatePresence>
         {status === "waking" && (
           <motion.div
@@ -826,6 +809,52 @@ function ServerMascot({ status = "checking" }) {
               />
             </svg>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {(status === "sleeping" || status === "checking") && (
+          <div className="absolute -top-6 right-4 pointer-events-none">
+            <motion.span
+              className="block text-xs font-bold text-slate-400"
+              initial={{ y: 0, opacity: 0, scale: 0.8 }}
+              animate={{
+                y: [-2, -14, -28],
+                opacity: [0, 1, 0],
+                scale: [0.8, 1, 0.9],
+              }}
+              transition={{ duration: 1.6, repeat: Infinity, delay: 0 }}
+              aria-hidden
+            >
+              Z
+            </motion.span>
+            <motion.span
+              className="block text-sm font-bold text-slate-300 -mt-1"
+              initial={{ y: 0, opacity: 0, scale: 0.85 }}
+              animate={{
+                y: [0, -12, -26],
+                opacity: [0, 1, 0],
+                scale: [0.85, 1, 0.95],
+              }}
+              transition={{ duration: 1.6, repeat: Infinity, delay: 0.45 }}
+              aria-hidden
+            >
+              Z
+            </motion.span>
+            <motion.span
+              className="block text-base font-bold text-slate-200 -mt-1"
+              initial={{ y: 0, opacity: 0, scale: 0.9 }}
+              animate={{
+                y: [0, -10, -22],
+                opacity: [0, 1, 0],
+                scale: [0.9, 1, 0.98],
+              }}
+              transition={{ duration: 1.6, repeat: Infinity, delay: 0.85 }}
+              aria-hidden
+            >
+              Z
+            </motion.span>
+          </div>
         )}
       </AnimatePresence>
     </motion.div>
