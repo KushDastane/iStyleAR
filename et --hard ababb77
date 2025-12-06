@@ -1,0 +1,99 @@
+[33mdc13986[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m docker
+[33m32fb4b3[m gunicorn
+[33m1e0fde9[m captcha test4
+[33me211302[m captcha test3
+[33me5c5a73[m captcha test2
+[33m1037cf6[m captcha test
+[33m9915511[m scroll 4
+[33m10295ab[m scroll 3
+[33mcc73620[m scroll 2 and delete try fix 1
+[33m7b92e8c[m scroll
+[33m6ee91bd[m re login entry fix
+[33m88b2eed[m enhanced login
+[33mccb1e92[m enhanced
+[33m6b9366a[m Centered navbar public
+[33m92b93e2[m Enhanced free tryon
+[33m91e1e6e[m Enhanced homepage public
+[33m7a389f0[m Enhanced mobile tryon buttons
+[33m12a6118[m Enhanced dropdown
+[33m1356a1a[m Enhanced profile
+[33md6fe465[m Enhanced Wardrobe & Dashboard & Achievements
+[33m1942c29[m Enhanced Trending
+[33m4f24ea4[m Enhanced Carousel & Try On UI
+[33m4fe1b92[m Mobile placeholder centered
+[33m90a2550[m Try on placeholder
+[33md61def1[m Gesture info panel
+[33m85aa77f[m Gesture control
+[33m94a2930[m Improved UI
+[33md273fd6[m Added achievements & store captures
+[33m2448849[m fixed trending
+[33mb9b876a[m Mirorred tryfree
+[33m5ef27c9[m Free costume updated
+[33m81236e4[m MOBILE TRY ON WORKING!!!!
+[33mf096ee9[m user try on fix try 5
+[33m135861f[m user try on fix try 4
+[33mc7ce66a[m user try on fix try 3
+[33mded1e13[m user try on fix try 3
+[33m42832b8[m user try on fix try 2
+[33md1e0663[m user try on fix try
+[33m9a39385[m AR FIX TRY 1
+[33m4c3f2ae[m FINAL PUBLISH WORKING!
+[33mddceac6[m WORKING ALLLLL
+[33m20662a7[m WORKING
+[33m02bd257[m registration fix 9
+[33ma722755[m registration fix 8
+[33mb7af0e9[m registration fix 7
+[33mcfaa36a[m registration fix 6
+[33m15f8db9[m registration fix 5
+[33mc215100[m registration fix 4
+[33m98f7597[m registration fix 3
+[33mb4dfb02[m registration fix 2
+[33m6b7a87b[m registration fix 1
+[33m6743266[m clean abort errors 2
+[33ma66fa31[m clean abort errors
+[33m3cf8859[m Try fix abort errors
+[33me782e44[m Add Eruda mobile debugger for testing
+[33m29f6cd7[m Unregister old service workers to fix blank screen
+[33m9d6c378[m blank fix 6
+[33mabf2065[m Update index.html for Netlify headers and cache fixes
+[33m334ca48[m Add Netlify headers to fix cache/blank screen issue
+[33m44c6752[m Fix blank screen issue in Chrome
+[33m30c49fd[m blank fix 4
+[33m08292d5[m blank fix 3
+[33mf296afc[m blank fix 2
+[33m5dbc26a[m blank fix 1
+[33m5836071[m _redirect
+[33m5f41fd1[m AR fix2
+[33mb8f9575[m AR fix1
+[33m962c95a[m env display removed
+[33m63ef430[m eye pwd
+[33m21c92d1[m Dynamic Workflow
+[33m57a3f9e[m Vid mirroring
+[33mbdfb12e[m Sudhanshu Role
+[33m162becc[m netlify -> railway
+[33m229c5a4[m added root route for health check
+[33m4623bc9[m imported os
+[33m9f9bca7[m Update Dockerfile for Railway deployment
+[33m5081d9f[m Added Dockerfile for backend
+[33m1f6d816[m deleted railway.toml config
+[33m75099d8[m Fix valid railway.toml config and Python version
+[33m267c450[m Fix Python version for Railway
+[33m83002d1[m Fix: use opencv-python-headless for Railway
+[33m0127226[m Thumbnail change
+[33mfa85028[m Deploying with dark mode
+[33m65564cc[m Fixed scroll issues
+[33m3eacf75[m added favourite in trending
+[33mb714ecf[m responsive scroll arrow
+[33m9be2d79[m png pfp
+[33md5cef21[m Added Navbar event listeners and improved responsiveness
+[33m6b7b4bb[m Add Netlify _redirects file to fix SPA routing
+[33m83860c7[m Fixed auth responsiveness
+[33md5b6ce7[m Thumbnail added
+[33mf7c3cda[m SVG added
+[33m5218534[m Commit 2 before backend deployment
+[33m64323eb[m Commit before backend deployment
+[33m0b28b53[m Almost Final
+[33mdd18c69[m Commit 4
+[33m5be2a29[m Commit 3
+[33m1d190c0[m Commit 2
+[33m059500a[m Commit 1

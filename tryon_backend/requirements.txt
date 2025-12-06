@@ -7,3 +7,4 @@ requests
 mediapipe
 python-dotenv
 cloudinary
+gunicorn
