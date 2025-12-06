@@ -13,25 +13,12 @@ export default function ARWakeUpModal({
   const [message, setMessage] = useState("Initializing connection...");
   const [progressValue, setProgressValue] = useState(0); // visual progress 0-100
 
-  const pollingRef = useRef(null);
-  const rapidRef = useRef(null);
-  const rampRef = useRef(null);
-  const abortRef = useRef(null); // primary (long) controller
-  const rapidAbortRef = useRef(null); // rapid/quick controller
-  const quickAbortRef = useRef(null); // immediate-quick controller
+  const pollingRef = useRef(null); // timeout id for exponential backoff
+  const rapidRef = useRef(null); // interval id for rapid polling
+  const rampRef = useRef(null); // interval id for visual progress ramp
+  const abortRef = useRef(null); // AbortController for the currently active fetch
   const cancelledRef = useRef(false);
   const readyNotifiedRef = useRef(false);
-
-  const visibilityHandlersRef = useRef(null);
-  const wakeTimeoutRef = useRef(null);
-
-  const [nudge, setNudge] = useState(false);
-
-  // Timeouts (tweak to taste)
-  const QUICK_TIMEOUT_MS = 3000;
-  const LONG_TIMEOUT_MS = 15000;
-  const WAKE_ESCALATE_MS = 3500;
-  const RAPID_INTERVAL_MS = 2000;
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -45,34 +32,29 @@ export default function ARWakeUpModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  useEffect(() => {
-    if (tries > 0 && status !== "ready") {
-      setNudge(true);
-      const t = setTimeout(() => setNudge(false), 900);
-      return () => clearTimeout(t);
-    }
-  }, [tries, status]);
-
+  // ---- Visibility / focus handlers ----
   useEffect(() => {
     if (!open) return;
     const onFocusOrVisible = () => {
       if (status !== "ready" && status !== "error") doImmediatePoll();
     };
-    const onVisibility = () => {
-      if (!document.hidden) onFocusOrVisible();
-    };
-
-    visibilityHandlersRef.current = { onFocusOrVisible, onVisibility };
     window.addEventListener("focus", onFocusOrVisible);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => removeVisibilityHandlers();
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) onFocusOrVisible();
+    });
+    return () => {
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onFocusOrVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, status]);
 
+  // close on Escape
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
       if (e.key === "Escape") {
+        // stop background work and inform parent
         cleanupAll();
         onClose();
       }
@@ -83,14 +65,10 @@ export default function ARWakeUpModal({
   }, [open]);
 
   function removeVisibilityHandlers() {
-    if (visibilityHandlersRef.current) {
-      const { onFocusOrVisible, onVisibility } = visibilityHandlersRef.current;
-      window.removeEventListener("focus", onFocusOrVisible);
-      document.removeEventListener("visibilitychange", onVisibility);
-      visibilityHandlersRef.current = null;
-    }
+    /* kept for symmetry */
   }
 
+  // ---- Cleanup helpers ----
   function clearPollingTimeout() {
     if (pollingRef.current) {
       clearTimeout(pollingRef.current);
@@ -109,7 +87,6 @@ export default function ARWakeUpModal({
       rampRef.current = null;
     }
   }
-
   function abortFetch() {
     if (abortRef.current) {
       try {
@@ -117,37 +94,15 @@ export default function ARWakeUpModal({
       } catch (e) {}
       abortRef.current = null;
     }
-    if (rapidAbortRef.current) {
-      try {
-        rapidAbortRef.current.abort();
-      } catch (e) {}
-      rapidAbortRef.current = null;
-    }
-    if (quickAbortRef.current) {
-      try {
-        quickAbortRef.current.abort();
-      } catch (e) {}
-      quickAbortRef.current = null;
-    }
   }
-
   function cleanupAll() {
     clearPollingTimeout();
     clearRapidInterval();
     clearRampInterval();
-    if (wakeTimeoutRef.current) {
-      clearTimeout(wakeTimeoutRef.current);
-      wakeTimeoutRef.current = null;
-    }
     abortFetch();
   }
 
-  // STOP check should fully cancel ongoing work so UI doesn't stay stuck
-  function stopCheck() {
-    // full cleanup (abort controllers, timers, intervals)
-    cleanupAll();
-  }
-
+  // ---- Start / Stop ----
   function startCheck() {
     cleanupAll();
     setStatus("checking");
@@ -156,13 +111,19 @@ export default function ARWakeUpModal({
     cancelledRef.current = false;
     readyNotifiedRef.current = false;
     setProgressValue(0);
-    startProgressRamp();
+    startProgressRamp(); // start visual ramp
     doPoll(0);
+  }
+
+  function stopCheck() {
+    clearPollingTimeout();
+    clearRapidInterval();
+    clearRampInterval();
   }
 
   function handleCancel() {
     cancelledRef.current = true;
-    cleanupAll();
+    cleanupAll(); // abort any in-flight fetch and clear timers
     setStatus("error");
     setMessage("Connection attempt cancelled.");
   }
@@ -171,182 +132,132 @@ export default function ARWakeUpModal({
     startCheck();
   }
 
+  // ---- Visual ramping logic ----
   function startProgressRamp() {
     clearRampInterval();
+    // ramp every 700ms
     rampRef.current = setInterval(() => {
       setProgressValue((prev) => {
         if (cancelledRef.current) return prev;
+        // determine a dynamic cap depending on status & tries
         let cap;
         if (status === "checking") cap = 20;
         else if (status === "sleeping") cap = 40;
         else if (status === "waking") {
+          // near-end cap grows with attempts so it doesn't get stuck at low %.
           cap = Math.min(95, 30 + tries * 12 + Math.floor(Math.random() * 6));
-        } else if (status === "error") cap = prev;
+        } else if (status === "error") cap = prev; // freeze on error
         else cap = 95;
 
+        // if we're already at or above cap, don't grow further (until status changes)
         if (prev >= cap) return prev;
+
+        // add an adaptive increment (bigger early, smaller near cap)
         const distance = cap - prev;
-        const inc = Math.max(1, Math.ceil(distance / 12));
+        const inc = Math.max(1, Math.ceil(distance / 12)); // smooth step
         return Math.min(cap, prev + inc);
       });
     }, 700);
   }
 
+  // If status changes (ex: from checking -> waking) restart ramp to pick new cap
   useEffect(() => {
+    // restart ramp to use new cap when status or tries changes
     if (open && status !== "ready" && status !== "error") {
       startProgressRamp();
     }
-
-    // IMMEDIATE onReady when status becomes 'ready'
     if (status === "ready") {
-      // Immediately mark full progress and notify caller
+      // ensure progress goes to 100 when ready
       setProgressValue(100);
       clearRampInterval();
-
-      if (!readyNotifiedRef.current) {
-        readyNotifiedRef.current = true;
-        try {
-          onReady();
-        } catch (e) {}
-      }
-
-      // small visual grace (does not delay onReady)
+      // delay slightly to allow progress bar animation to finish before notifying
       const afterAnim = setTimeout(() => {
-        /* intentionally empty - tiny visual grace */
-      }, 120);
-
+        if (!readyNotifiedRef.current) {
+          readyNotifiedRef.current = true;
+          try {
+            onReady();
+          } catch (e) {
+            /* swallow callback errors */
+          }
+        }
+      }, 650); // must match motion transition ~600ms
       return () => clearTimeout(afterAnim);
     }
-
     if (status === "error") {
       clearRampInterval();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tries, open]);
 
-  // fetchWithTimeout helper returns { promise, controller }
-  function fetchWithTimeout(url, opts = {}, timeout = 7000) {
-    const controller = new AbortController();
-    const signal = controller.signal;
-    const merged = { ...opts, signal };
-
-    const promise = new Promise((resolve, reject) => {
-      const to = setTimeout(() => controller.abort(), timeout);
-      fetch(url, merged)
-        .then((res) => {
-          clearTimeout(to);
-          resolve(res);
-        })
-        .catch((err) => {
-          clearTimeout(to);
-          reject(err);
-        });
-    });
-
-    return { promise, controller };
-  }
-
+  // ---- Immediate one-shot poll used on focus/visibility ----
   function doImmediatePoll() {
-    // Quick probe on focus/visibility; use quickAbortRef so we don't clobber primary
-    if (quickAbortRef.current) return;
-    const { promise, controller } = fetchWithTimeout(
-      healthUrl,
-      { method: "GET", cache: "no-store" },
-      QUICK_TIMEOUT_MS
-    );
-    quickAbortRef.current = controller;
-    promise
+    if (abortRef.current) return;
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    fetch(healthUrl, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then((res) => {
         if (controller.signal.aborted || cancelledRef.current) return;
-        if (res.ok) finalizeReady();
+        if (res.ok) {
+          // immediate success -> go ready (but onReady will be invoked after progress anim completes)
+          finalizeReady();
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        // ignore errors for one-shot
+      })
       .finally(() => {
-        if (quickAbortRef.current === controller) quickAbortRef.current = null;
+        if (abortRef.current === controller) abortRef.current = null;
       });
   }
 
+  // ---- Primary poll with exponential backoff ----
   function doPoll(n) {
     if (cancelledRef.current) return;
     const attempt = n + 1;
     setTries(attempt);
 
-    // abort previous primary
-    if (abortRef.current) {
-      try {
-        abortRef.current.abort();
-      } catch (e) {}
-      abortRef.current = null;
-    }
+    // ensure single active fetch: abort previous if any
+    abortFetch();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
-    // start the long (primary) probe
-    const { promise: longPromise, controller: longController } =
-      fetchWithTimeout(
-        healthUrl,
-        { method: "GET", cache: "no-store" },
-        LONG_TIMEOUT_MS
-      );
-    abortRef.current = longController;
-
-    // If first attempt hangs beyond WAKE_ESCALATE_MS, escalate UI to 'waking'
-    if (attempt === 1) {
-      if (wakeTimeoutRef.current) clearTimeout(wakeTimeoutRef.current);
-      wakeTimeoutRef.current = setTimeout(() => {
-        if (
-          !cancelledRef.current &&
-          (status === "checking" || status === "sleeping")
-        ) {
-          setStatus("waking");
-          setMessage("Waking server — this may take a moment...");
-        }
-      }, WAKE_ESCALATE_MS);
-    }
-
-    longPromise
+    fetch(healthUrl, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    })
       .then((res) => {
-        if (longController.signal.aborted || cancelledRef.current) return;
-        // clear escalation timer
-        if (wakeTimeoutRef.current) {
-          clearTimeout(wakeTimeoutRef.current);
-          wakeTimeoutRef.current = null;
-        }
+        if (controller.signal.aborted || cancelledRef.current) return;
         if (res.ok) {
+          // server became ready
           finalizeReady();
         } else {
           scheduleNextAttempt(attempt);
         }
       })
       .catch(() => {
-        if (longController.signal.aborted || cancelledRef.current) return;
-        if (wakeTimeoutRef.current) {
-          clearTimeout(wakeTimeoutRef.current);
-          wakeTimeoutRef.current = null;
-        }
+        if (controller.signal.aborted || cancelledRef.current) return;
         scheduleNextAttempt(attempt);
       })
       .finally(() => {
-        if (abortRef.current === longController) abortRef.current = null;
+        if (abortRef.current === controller) abortRef.current = null;
       });
   }
 
-  // FINALIZE: ensure everything is stopped and user isn't left waiting
   function finalizeReady() {
-    // stop all intervals/requests immediately
-    cleanupAll();
-
-    // set ready and message
+    // stop background polling, but visually complete progress first
+    stopCheck(); // stops timers but does not call onReady yet
     setStatus("ready");
     setMessage("Connection established. Ready to proceed.");
-
-    // ensure onReady is called exactly once (defensive)
-    if (!readyNotifiedRef.current) {
-      readyNotifiedRef.current = true;
-      try {
-        onReady();
-      } catch (e) {}
-    }
+    // setProgressValue(100) is handled by status effect above
   }
 
+  // When waking, schedule exponential next attempt + rapid poll
   function scheduleNextAttempt(attemptNumber) {
     if (cancelledRef.current) return;
 
@@ -377,33 +288,37 @@ export default function ARWakeUpModal({
       doPoll(attemptNumber);
     }, nextDelay);
 
-    // rapid background probes (use rapidAbortRef so they don't cancel primary)
     if (!rapidRef.current) {
+      // quick detection poll every 2s while warming
       rapidRef.current = setInterval(() => {
-        if (cancelledRef.current) return;
-        if (rapidAbortRef.current) return; // already a rapid probe running
-        const { promise, controller } = fetchWithTimeout(
-          healthUrl,
-          { method: "GET", cache: "no-store" },
-          QUICK_TIMEOUT_MS
-        );
-        rapidAbortRef.current = controller;
-        promise
+        if (abortRef.current || cancelledRef.current) return;
+        const controller = new AbortController();
+        abortRef.current = controller;
+        fetch(healthUrl, {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        })
           .then((res) => {
             if (controller.signal.aborted || cancelledRef.current) return;
-            if (res.ok) finalizeReady();
+            if (res.ok) {
+              finalizeReady();
+            }
           })
-          .catch(() => {})
+          .catch(() => {
+            // ignore
+          })
           .finally(() => {
-            if (rapidAbortRef.current === controller)
-              rapidAbortRef.current = null;
+            if (abortRef.current === controller) abortRef.current = null;
           });
-      }, RAPID_INTERVAL_MS);
+      }, 2000);
     }
   }
 
+  // Progress is driven by progressValue state; motion will animate
   const progress = Math.max(0, Math.min(100, Math.round(progressValue)));
 
+  // UI config (same)
   const statusConfig = {
     checking: {
       color: "text-blue-700",
@@ -447,11 +362,12 @@ export default function ARWakeUpModal({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="relative w-full max-w-lg sm:max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
+              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
               role="dialog"
               aria-modal="true"
             >
-              {/* Close button */}
+              {/* Close button (FaTimes) */}
+              {/* Close button (FaTimes) */}
               <button
                 type="button"
                 aria-label="Close dialog"
@@ -459,9 +375,11 @@ export default function ARWakeUpModal({
                   cleanupAll();
                   onClose();
                 }}
-                className="absolute right-4 top-4 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 pointer-events-auto cursor-pointer"
+                className="absolute right-5 top-5 inline-flex items-center justify-center
+             w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600
+             shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 pointer-events-auto cursor-pointer"
               >
-                <FaTimes className="w-3.5 h-3.5" />
+                <FaTimes className="w-4 h-4" />
               </button>
 
               <div
@@ -482,35 +400,33 @@ export default function ARWakeUpModal({
                 />
               </div>
 
-              <div className="p-6 sm:p-8">
-                <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-center">
-                  <div className="w-full sm:w-48 flex-shrink-0 flex items-center justify-center">
-                    <div className="w-32 h-32 sm:w-48 sm:h-48">
-                      <ServerMascot status={status} nudge={nudge} />
-                    </div>
+              <div className="p-8">
+                <div className="flex flex-col md:flex-row gap-8 items-center">
+                  <div className="w-48 h-48 flex-shrink-0 flex items-center justify-center">
+                    <ServerMascot status={status} />
                   </div>
 
                   <div className="flex-1 w-full">
-                    <div className="mb-4 sm:mb-6">
-                      <div className="flex items-center gap-3 mb-2 sm:mb-3">
-                        <h3 className="text-lg sm:text-2xl font-bold text-slate-900">
+                    <div className="mb-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h3 className="text-2xl font-bold text-slate-900">
                           {status === "ready"
                             ? "Connection Ready"
                             : "Initializing Server"}
                         </h3>
                         <StatusBadge status={status} config={currentConfig} />
                       </div>
-                      <p className="text-slate-600 leading-relaxed text-sm sm:text-base">
+                      <p className="text-slate-600 leading-relaxed">
                         {message}
                       </p>
                     </div>
 
-                    <div className="mb-4 sm:mb-6 space-y-3">
-                      <div className="flex justify-between items-center text-xs sm:text-sm font-medium">
+                    <div className="mb-6 space-y-3">
+                      <div className="flex justify-between items-center text-xs font-medium">
                         <span className="text-slate-500">
                           {status === "ready" ? "Complete" : "In Progress"}
                         </span>
-                        <span className={`${currentConfig.color} text-sm`}>
+                        <span className={currentConfig.color}>
                           {status === "ready" ? "100%" : `${progress}%`}
                         </span>
                       </div>
@@ -524,7 +440,7 @@ export default function ARWakeUpModal({
                           }`}
                           initial={{ width: "0%" }}
                           animate={{ width: `${progress}%` }}
-                          transition={{ duration: 0.18, ease: "easeOut" }}
+                          transition={{ duration: 0.6, ease: "easeOut" }}
                         />
                         {status !== "ready" && (
                           <motion.div
@@ -543,7 +459,7 @@ export default function ARWakeUpModal({
                     <div className="flex flex-col sm:flex-row gap-3">
                       {status === "ready" ? (
                         <button
-                          className="w-full sm:flex-1 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold shadow-lg"
+                          className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-semibold shadow-lg"
                           onClick={onClose}
                         >
                           Continue to AR Experience
@@ -551,13 +467,13 @@ export default function ARWakeUpModal({
                       ) : (
                         <>
                           <button
-                            className="w-full sm:flex-1 px-5 py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50"
+                            className="flex-1 px-6 py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50"
                             onClick={handleManualRetry}
                           >
                             Retry Now
                           </button>
                           <button
-                            className="w-full sm:flex-1 px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                            className="flex-1 px-6 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
                             onClick={handleCancel}
                           >
                             Cancel
@@ -566,7 +482,7 @@ export default function ARWakeUpModal({
                       )}
                     </div>
 
-                    <div className="mt-5 pt-5 border-t border-slate-100">
+                    <div className="mt-6 pt-6 border-t border-slate-100">
                       <div className="flex items-start gap-3 text-sm">
                         <svg
                           className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5"
@@ -582,13 +498,13 @@ export default function ARWakeUpModal({
                           />
                         </svg>
                         <div className="space-y-1">
-                          <p className="text-slate-600 text-sm">
+                          <p className="text-slate-600">
                             <span className="font-medium">Attempt {tries}</span>{" "}
                             · Server instances spin down during inactivity to
                             save resources
                           </p>
                           {tries > 8 && status !== "ready" && (
-                            <p className="text-amber-600 font-medium text-sm">
+                            <p className="text-amber-600 font-medium">
                               Taking longer than expected. Check system status
                               if this persists.
                             </p>
@@ -639,8 +555,8 @@ function StatusBadge({ status, config }) {
   );
 }
 
-/* ServerMascot: supports 'nudge' and responsive sizing */
-function ServerMascot({ status = "checking", nudge = false }) {
+/* ServerMascot: eyes closed until ready; waking does intermittent shake (repeatDelay built in) */
+function ServerMascot({ status = "checking" }) {
   const containerVariants = {
     idle: { scale: 1, rotate: 0 },
     wake: {
@@ -659,31 +575,20 @@ function ServerMascot({ status = "checking", nudge = false }) {
       rotate: [0, 3, -3, 0],
       transition: { duration: 0.9, ease: "easeOut" },
     },
-    nudge: {
-      x: [0, -6, 6, -4, 3, 0],
-      rotate: [0, -6, 6, -4, 2, 0],
-      transition: { duration: 0.75, ease: "easeInOut" },
-    },
   };
-
   const isOpenEyes = status === "ready";
-  const activeAnim = nudge
-    ? "nudge"
-    : status === "ready"
-    ? "ready"
-    : status === "waking"
-    ? "wake"
-    : "idle";
 
   return (
     <motion.div
-      className="relative w-full h-full flex items-center justify-center"
+      className="relative w-44 h-44 flex items-center justify-center"
       variants={containerVariants}
-      animate={activeAnim}
+      animate={
+        status === "ready" ? "ready" : status === "waking" ? "wake" : "idle"
+      }
     >
       <motion.svg
         viewBox="0 0 140 140"
-        className="w-full h-full drop-shadow-xl"
+        className="w-44 h-44 drop-shadow-xl"
         role="img"
         aria-label="server mascot"
       >
@@ -754,6 +659,7 @@ function ServerMascot({ status = "checking", nudge = false }) {
           </g>
         </g>
 
+        {/* Eyes closed unless ready */}
         {!isOpenEyes ? (
           <g>
             <motion.line
@@ -804,6 +710,7 @@ function ServerMascot({ status = "checking", nudge = false }) {
           </g>
         )}
 
+        {/* Mouth */}
         {status === "ready" ? (
           <motion.path
             d="M58 78 Q70 88 82 78"
@@ -827,18 +734,13 @@ function ServerMascot({ status = "checking", nudge = false }) {
           />
         )}
 
+        {/* Status dots */}
         <g>
           <motion.circle
             cx="38"
             cy="92"
             r="3.5"
-            fill={
-              status === "ready"
-                ? "#10b981"
-                : status === "waking"
-                ? "#f59e0b"
-                : "#ef4444"
-            }
+            fill={status === "ready" ? "#10b981" : "#ef4444"}
             animate={
               status === "waking" || status === "checking"
                 ? { opacity: [1, 0.3, 1] }
@@ -865,6 +767,7 @@ function ServerMascot({ status = "checking", nudge = false }) {
         </g>
       </motion.svg>
 
+      {/* waking bell (intermittent) */}
       <AnimatePresence>
         {status === "waking" && (
           <motion.div
@@ -921,52 +824,6 @@ function ServerMascot({ status = "checking", nudge = false }) {
               />
             </svg>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {(status === "sleeping" || status === "checking") && (
-          <div className="absolute -top-6 right-4 pointer-events-none">
-            <motion.span
-              className="block text-xs font-bold text-slate-400"
-              initial={{ y: 0, opacity: 0, scale: 0.8 }}
-              animate={{
-                y: [-2, -14, -28],
-                opacity: [0, 1, 0],
-                scale: [0.8, 1, 0.9],
-              }}
-              transition={{ duration: 1.6, repeat: Infinity, delay: 0 }}
-              aria-hidden
-            >
-              Z
-            </motion.span>
-            <motion.span
-              className="block text-sm font-bold text-slate-300 -mt-1"
-              initial={{ y: 0, opacity: 0, scale: 0.85 }}
-              animate={{
-                y: [0, -12, -26],
-                opacity: [0, 1, 0],
-                scale: [0.85, 1, 0.95],
-              }}
-              transition={{ duration: 1.6, repeat: Infinity, delay: 0.45 }}
-              aria-hidden
-            >
-              Z
-            </motion.span>
-            <motion.span
-              className="block text-base font-bold text-slate-200 -mt-1"
-              initial={{ y: 0, opacity: 0, scale: 0.9 }}
-              animate={{
-                y: [0, -10, -22],
-                opacity: [0, 1, 0],
-                scale: [0.9, 1, 0.98],
-              }}
-              transition={{ duration: 1.6, repeat: Infinity, delay: 0.85 }}
-              aria-hidden
-            >
-              Z
-            </motion.span>
-          </div>
         )}
       </AnimatePresence>
     </motion.div>
