@@ -200,19 +200,28 @@ export default function ARWakeUpModal({
     if (open && status !== "ready" && status !== "error") {
       startProgressRamp();
     }
+
+    // IMMEDIATE onReady when status becomes 'ready'
     if (status === "ready") {
+      // Immediately mark full progress and notify caller
       setProgressValue(100);
       clearRampInterval();
+
+      if (!readyNotifiedRef.current) {
+        readyNotifiedRef.current = true;
+        try {
+          onReady();
+        } catch (e) {}
+      }
+
+      // small visual grace (does not delay onReady)
       const afterAnim = setTimeout(() => {
-        if (!readyNotifiedRef.current) {
-          readyNotifiedRef.current = true;
-          try {
-            onReady();
-          } catch (e) {}
-        }
-      }, 650);
+        /* intentionally empty - tiny visual grace */
+      }, 120);
+
       return () => clearTimeout(afterAnim);
     }
+
     if (status === "error") {
       clearRampInterval();
     }
@@ -511,7 +520,7 @@ export default function ARWakeUpModal({
                           }`}
                           initial={{ width: "0%" }}
                           animate={{ width: `${progress}%` }}
-                          transition={{ duration: 0.6, ease: "easeOut" }}
+                          transition={{ duration: 0.18, ease: "easeOut" }}
                         />
                         {status !== "ready" && (
                           <motion.div
