@@ -142,6 +142,12 @@ export default function ARWakeUpModal({
     abortFetch();
   }
 
+  // STOP check should fully cancel ongoing work so UI doesn't stay stuck
+  function stopCheck() {
+    // full cleanup (abort controllers, timers, intervals)
+    cleanupAll();
+  }
+
   function startCheck() {
     cleanupAll();
     setStatus("checking");
@@ -152,16 +158,6 @@ export default function ARWakeUpModal({
     setProgressValue(0);
     startProgressRamp();
     doPoll(0);
-  }
-
-  function stopCheck() {
-    clearPollingTimeout();
-    clearRapidInterval();
-    clearRampInterval();
-    if (wakeTimeoutRef.current) {
-      clearTimeout(wakeTimeoutRef.current);
-      wakeTimeoutRef.current = null;
-    }
   }
 
   function handleCancel() {
@@ -333,10 +329,22 @@ export default function ARWakeUpModal({
       });
   }
 
+  // FINALIZE: ensure everything is stopped and user isn't left waiting
   function finalizeReady() {
-    stopCheck();
+    // stop all intervals/requests immediately
+    cleanupAll();
+
+    // set ready and message
     setStatus("ready");
     setMessage("Connection established. Ready to proceed.");
+
+    // ensure onReady is called exactly once (defensive)
+    if (!readyNotifiedRef.current) {
+      readyNotifiedRef.current = true;
+      try {
+        onReady();
+      } catch (e) {}
+    }
   }
 
   function scheduleNextAttempt(attemptNumber) {
@@ -443,7 +451,7 @@ export default function ARWakeUpModal({
               role="dialog"
               aria-modal="true"
             >
-              {/* Close button (smaller and adjusted for mobile) */}
+              {/* Close button */}
               <button
                 type="button"
                 aria-label="Close dialog"
@@ -451,9 +459,7 @@ export default function ARWakeUpModal({
                   cleanupAll();
                   onClose();
                 }}
-                className="absolute right-4 top-4 inline-flex items-center justify-center
-             w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600
-             shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 pointer-events-auto cursor-pointer"
+                className="absolute right-4 top-4 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 pointer-events-auto cursor-pointer"
               >
                 <FaTimes className="w-3.5 h-3.5" />
               </button>
@@ -477,10 +483,8 @@ export default function ARWakeUpModal({
               </div>
 
               <div className="p-6 sm:p-8">
-                {/* stacked on mobile, row on small+ */}
                 <div className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-center">
                   <div className="w-full sm:w-48 flex-shrink-0 flex items-center justify-center">
-                    {/* responsive mascot sizing */}
                     <div className="w-32 h-32 sm:w-48 sm:h-48">
                       <ServerMascot status={status} nudge={nudge} />
                     </div>
