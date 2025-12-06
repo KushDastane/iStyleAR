@@ -41,6 +41,7 @@ mp = None
 _opencv_available = False
 _mediapipe_available = False
 pose = None
+previous_points = None 
 
 try:
     import cv2 as _cv2
