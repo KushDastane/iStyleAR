@@ -16,20 +16,22 @@ export default function ARWakeUpModal({
   const pollingRef = useRef(null);
   const rapidRef = useRef(null);
   const rampRef = useRef(null);
-  const abortRef = useRef(null); // primary request controller
-  const rapidAbortRef = useRef(null); // rapid interval controller (separate)
+  const abortRef = useRef(null); // primary (long) controller
+  const rapidAbortRef = useRef(null); // rapid/quick controller
+  const quickAbortRef = useRef(null); // immediate-quick controller
   const cancelledRef = useRef(false);
   const readyNotifiedRef = useRef(false);
 
-  // helpers for transitional behavior
+  const visibilityHandlersRef = useRef(null);
   const wakeTimeoutRef = useRef(null);
-  const visibilityHandlerRef = useRef(null);
 
   const [nudge, setNudge] = useState(false);
 
-  // Configurable timeouts
-  const FETCH_TIMEOUT_MS = 7000; // abort a single fetch after 7s
-  const WAKE_AFTER_MS = 4000; // if first attempt still pending after this, set status => 'waking'
+  // Timeouts (tweak to taste)
+  const QUICK_TIMEOUT_MS = 3000;
+  const LONG_TIMEOUT_MS = 15000;
+  const WAKE_ESCALATE_MS = 3500;
+  const RAPID_INTERVAL_MS = 2000;
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -39,7 +41,6 @@ export default function ARWakeUpModal({
     return () => {
       cleanupAll();
       removeVisibilityHandlers();
-      clearWakeTimeout();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -52,7 +53,6 @@ export default function ARWakeUpModal({
     }
   }, [tries, status]);
 
-  // Proper visibility handlers (store references so we can remove)
   useEffect(() => {
     if (!open) return;
     const onFocusOrVisible = () => {
@@ -61,22 +61,11 @@ export default function ARWakeUpModal({
     const onVisibility = () => {
       if (!document.hidden) onFocusOrVisible();
     };
-    visibilityHandlerRef.current = { onFocusOrVisible, onVisibility };
+
+    visibilityHandlersRef.current = { onFocusOrVisible, onVisibility };
     window.addEventListener("focus", onFocusOrVisible);
     document.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      if (visibilityHandlerRef.current) {
-        window.removeEventListener(
-          "focus",
-          visibilityHandlerRef.current.onFocusOrVisible
-        );
-        document.removeEventListener(
-          "visibilitychange",
-          visibilityHandlerRef.current.onVisibility
-        );
-        visibilityHandlerRef.current = null;
-      }
-    };
+    return () => removeVisibilityHandlers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, status]);
 
@@ -94,23 +83,11 @@ export default function ARWakeUpModal({
   }, [open]);
 
   function removeVisibilityHandlers() {
-    if (visibilityHandlerRef.current) {
-      window.removeEventListener(
-        "focus",
-        visibilityHandlerRef.current.onFocusOrVisible
-      );
-      document.removeEventListener(
-        "visibilitychange",
-        visibilityHandlerRef.current.onVisibility
-      );
-      visibilityHandlerRef.current = null;
-    }
-  }
-
-  function clearWakeTimeout() {
-    if (wakeTimeoutRef.current) {
-      clearTimeout(wakeTimeoutRef.current);
-      wakeTimeoutRef.current = null;
+    if (visibilityHandlersRef.current) {
+      const { onFocusOrVisible, onVisibility } = visibilityHandlersRef.current;
+      window.removeEventListener("focus", onFocusOrVisible);
+      document.removeEventListener("visibilitychange", onVisibility);
+      visibilityHandlersRef.current = null;
     }
   }
 
@@ -125,12 +102,6 @@ export default function ARWakeUpModal({
       clearInterval(rapidRef.current);
       rapidRef.current = null;
     }
-    if (rapidAbortRef.current) {
-      try {
-        rapidAbortRef.current.abort();
-      } catch (e) {}
-      rapidAbortRef.current = null;
-    }
   }
   function clearRampInterval() {
     if (rampRef.current) {
@@ -138,6 +109,7 @@ export default function ARWakeUpModal({
       rampRef.current = null;
     }
   }
+
   function abortFetch() {
     if (abortRef.current) {
       try {
@@ -151,12 +123,22 @@ export default function ARWakeUpModal({
       } catch (e) {}
       rapidAbortRef.current = null;
     }
+    if (quickAbortRef.current) {
+      try {
+        quickAbortRef.current.abort();
+      } catch (e) {}
+      quickAbortRef.current = null;
+    }
   }
+
   function cleanupAll() {
     clearPollingTimeout();
     clearRapidInterval();
     clearRampInterval();
-    clearWakeTimeout();
+    if (wakeTimeoutRef.current) {
+      clearTimeout(wakeTimeoutRef.current);
+      wakeTimeoutRef.current = null;
+    }
     abortFetch();
   }
 
@@ -176,7 +158,10 @@ export default function ARWakeUpModal({
     clearPollingTimeout();
     clearRapidInterval();
     clearRampInterval();
-    clearWakeTimeout();
+    if (wakeTimeoutRef.current) {
+      clearTimeout(wakeTimeoutRef.current);
+      wakeTimeoutRef.current = null;
+    }
   }
 
   function handleCancel() {
@@ -234,19 +219,14 @@ export default function ARWakeUpModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, tries, open]);
 
-  // ----- helper: fetch with timeout -----
-  function fetchWithTimeout(url, opts = {}, timeout = FETCH_TIMEOUT_MS) {
+  // fetchWithTimeout helper returns { promise, controller }
+  function fetchWithTimeout(url, opts = {}, timeout = 7000) {
     const controller = new AbortController();
     const signal = controller.signal;
     const merged = { ...opts, signal };
 
-    // If caller wants to track/abort the primary fetch, they should capture the controller.
-    // This function returns { promise, controller } so caller can choose to store controller.
     const promise = new Promise((resolve, reject) => {
-      const to = setTimeout(() => {
-        controller.abort();
-      }, timeout);
-
+      const to = setTimeout(() => controller.abort(), timeout);
       fetch(url, merged)
         .then((res) => {
           clearTimeout(to);
@@ -261,39 +241,32 @@ export default function ARWakeUpModal({
     return { promise, controller };
   }
 
-  // Immediate poll used on focus/visibility
   function doImmediatePoll() {
-    // don't start if we already intentionally aborted
-    if (abortRef.current) return;
+    // Quick probe on focus/visibility; use quickAbortRef so we don't clobber primary
+    if (quickAbortRef.current) return;
     const { promise, controller } = fetchWithTimeout(
       healthUrl,
       { method: "GET", cache: "no-store" },
-      FETCH_TIMEOUT_MS
+      QUICK_TIMEOUT_MS
     );
-    // do not set abortRef here if you don't want this to cancel the main request; we can treat immediate poll as a separate probe
-    // but to keep cancel behavior working, store it in rapidAbortRef
-    rapidAbortRef.current = controller;
-
+    quickAbortRef.current = controller;
     promise
       .then((res) => {
         if (controller.signal.aborted || cancelledRef.current) return;
-        if (res.ok) {
-          finalizeReady();
-        }
+        if (res.ok) finalizeReady();
       })
       .catch(() => {})
       .finally(() => {
-        if (rapidAbortRef.current === controller) rapidAbortRef.current = null;
+        if (quickAbortRef.current === controller) quickAbortRef.current = null;
       });
   }
 
-  // Main polling worker
   function doPoll(n) {
     if (cancelledRef.current) return;
     const attempt = n + 1;
     setTries(attempt);
 
-    // abort any primary fetch before launching a new main attempt
+    // abort previous primary
     if (abortRef.current) {
       try {
         abortRef.current.abort();
@@ -301,18 +274,19 @@ export default function ARWakeUpModal({
       abortRef.current = null;
     }
 
-    const { promise, controller } = fetchWithTimeout(
-      healthUrl,
-      { method: "GET", cache: "no-store" },
-      FETCH_TIMEOUT_MS
-    );
-    abortRef.current = controller;
+    // start the long (primary) probe
+    const { promise: longPromise, controller: longController } =
+      fetchWithTimeout(
+        healthUrl,
+        { method: "GET", cache: "no-store" },
+        LONG_TIMEOUT_MS
+      );
+    abortRef.current = longController;
 
-    // If this is attempt 1 and the fetch is still pending after WAKE_AFTER_MS, move to waking
+    // If first attempt hangs beyond WAKE_ESCALATE_MS, escalate UI to 'waking'
     if (attempt === 1) {
-      clearWakeTimeout();
+      if (wakeTimeoutRef.current) clearTimeout(wakeTimeoutRef.current);
       wakeTimeoutRef.current = setTimeout(() => {
-        // if still in checking and not cancelled, escalate to waking so UI progress & mascot update
         if (
           !cancelledRef.current &&
           (status === "checking" || status === "sleeping")
@@ -320,12 +294,17 @@ export default function ARWakeUpModal({
           setStatus("waking");
           setMessage("Waking server — this may take a moment...");
         }
-      }, WAKE_AFTER_MS);
+      }, WAKE_ESCALATE_MS);
     }
 
-    promise
+    longPromise
       .then((res) => {
-        if (controller.signal.aborted || cancelledRef.current) return;
+        if (longController.signal.aborted || cancelledRef.current) return;
+        // clear escalation timer
+        if (wakeTimeoutRef.current) {
+          clearTimeout(wakeTimeoutRef.current);
+          wakeTimeoutRef.current = null;
+        }
         if (res.ok) {
           finalizeReady();
         } else {
@@ -333,24 +312,26 @@ export default function ARWakeUpModal({
         }
       })
       .catch(() => {
-        if (controller.signal.aborted || cancelledRef.current) return;
+        if (longController.signal.aborted || cancelledRef.current) return;
+        if (wakeTimeoutRef.current) {
+          clearTimeout(wakeTimeoutRef.current);
+          wakeTimeoutRef.current = null;
+        }
         scheduleNextAttempt(attempt);
       })
       .finally(() => {
-        if (abortRef.current === controller) abortRef.current = null;
+        if (abortRef.current === longController) abortRef.current = null;
       });
   }
 
   function finalizeReady() {
     stopCheck();
-    clearWakeTimeout();
     setStatus("ready");
     setMessage("Connection established. Ready to proceed.");
   }
 
   function scheduleNextAttempt(attemptNumber) {
     if (cancelledRef.current) return;
-    clearWakeTimeout();
 
     if (attemptNumber === 1) {
       setStatus("sleeping");
@@ -379,30 +360,28 @@ export default function ARWakeUpModal({
       doPoll(attemptNumber);
     }, nextDelay);
 
-    // Rapid probing (separate abort controller so it doesn't clobber main controller)
+    // rapid background probes (use rapidAbortRef so they don't cancel primary)
     if (!rapidRef.current) {
       rapidRef.current = setInterval(() => {
-        if (abortRef.current || cancelledRef.current) return;
-        // rapid probe uses its own controller and timeout
+        if (cancelledRef.current) return;
+        if (rapidAbortRef.current) return; // already a rapid probe running
         const { promise, controller } = fetchWithTimeout(
           healthUrl,
           { method: "GET", cache: "no-store" },
-          FETCH_TIMEOUT_MS
+          QUICK_TIMEOUT_MS
         );
         rapidAbortRef.current = controller;
         promise
           .then((res) => {
             if (controller.signal.aborted || cancelledRef.current) return;
-            if (res.ok) {
-              finalizeReady();
-            }
+            if (res.ok) finalizeReady();
           })
           .catch(() => {})
           .finally(() => {
             if (rapidAbortRef.current === controller)
               rapidAbortRef.current = null;
           });
-      }, 2000);
+      }, RAPID_INTERVAL_MS);
     }
   }
 
