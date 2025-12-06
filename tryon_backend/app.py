@@ -72,17 +72,42 @@ def tryon():
 
     print("Starting tryon request")
     try:
-        data = request.get_json()
-        if not data:
-            print("Error: No JSON data received")
-            return jsonify({'error': 'Invalid JSON data'}), 400
+               # Try to parse JSON safely (won't raise if body is not JSON)
+        data = request.get_json(silent=True) or {}
 
-        frame_data = data.get('frame')
-        shirt_url = data.get('shirtUrl')
+        # Debug prints to help inspect what the server receives (check Render logs)
+        print("Received Content-Type:", request.content_type)
+        print("Received JSON:", data)
+        print("Received form keys:", list(request.form.keys()))
+        print("Received files:", list(request.files.keys()))
 
-        if not frame_data or not shirt_url:
+        # Accept frame from JSON or form fields
+        frame_data = data.get('frame') or request.form.get('frame')
+
+        # Accept multiple variants of shirt URL keys
+        shirt_url = (
+            data.get('shirtUrl')
+            or data.get('shirt_url')
+            or request.form.get('shirtUrl')
+            or request.form.get('shirt_url')
+        )
+
+        # If a file was uploaded under the name 'frame', convert it to base64 so existing flow works
+        if not frame_data and 'frame' in request.files:
+            try:
+                uploaded = request.files['frame']
+                file_bytes = uploaded.read()
+                frame_data = base64.b64encode(file_bytes).decode('utf-8')
+                print("Converted uploaded frame file to base64 (len):", len(frame_data))
+            except Exception as e:
+                print("Error reading uploaded file 'frame':", e)
+                # continue — validation below will catch missing data if any
+
+        # Only return 400 when BOTH required inputs are missing
+        if not frame_data and not shirt_url:
             print(f"Error: Missing data - frame_data: {bool(frame_data)}, shirt_url: {bool(shirt_url)}")
             return jsonify({'error': 'Missing frame or shirtUrl'}), 400
+
 
         # Decode frame
         try:
