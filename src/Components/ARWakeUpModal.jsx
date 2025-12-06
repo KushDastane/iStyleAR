@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { FaTimes } from "react-icons/fa";
+
 
 export default function ARWakeUpModal({
   healthUrl = "/health",
@@ -18,6 +20,7 @@ export default function ARWakeUpModal({
   const abortRef = useRef(null); // AbortController for the currently active fetch
   const cancelledRef = useRef(false);
   const readyNotifiedRef = useRef(false);
+  
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -47,6 +50,21 @@ export default function ARWakeUpModal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, status]);
+
+  // close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        // stop background work and inform parent
+        cleanupAll();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function removeVisibilityHandlers() {
     /* kept for symmetry */
@@ -346,10 +364,26 @@ export default function ARWakeUpModal({
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
+              className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden pointer-events-auto"
               role="dialog"
               aria-modal="true"
             >
+              {/* Close button (FaTimes) */}
+              {/* Close button (FaTimes) */}
+              <button
+                type="button"
+                aria-label="Close dialog"
+                onClick={() => {
+                  cleanupAll();
+                  onClose();
+                }}
+                className="absolute right-5 top-5 inline-flex items-center justify-center
+             w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600
+             shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 pointer-events-auto cursor-pointer"
+              >
+                <FaTimes className="w-4 h-4" />
+              </button>
+
               <div
                 className={`h-1.5 ${
                   status === "ready"

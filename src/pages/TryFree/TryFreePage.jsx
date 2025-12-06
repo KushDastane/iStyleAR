@@ -358,8 +358,12 @@ export default function TryFreePage() {
 
             <div className="grid md:grid-cols-3 gap-6 items-start">
               {/* Camera Feed */}
+
               <div className="md:col-span-2">
-                <div className="relative aspect-square md:aspect-video w-full rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shadow-inner">
+                <div
+                  className="relative aspect-square md:aspect-video w-full rounded-lg overflow-hidden border bg-gradient-to-br from-white via-purple-50 to-purple-80
+ border-slate-200 shadow-inner"
+                >
                   <video
                     ref={videoRef}
                     autoPlay
@@ -377,34 +381,62 @@ export default function TryFreePage() {
                     style={{ display: isLiveTryOn ? "block" : "none" }}
                   />
 
+                  {/* Idle / "Ready to Begin" overlay */}
                   {!stream && selectedDress && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50">
-                      <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
-                        <FaCamera className="w-7 h-7 text-indigo-600" />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                      {/* Premium Background — z-0 so it sits behind UI */}
+                      <div
+                        className="absolute inset-0 z-0 pointer-events-none flex items-center justify-center
+                 bg-gradient-to-br from-[#0a0a0f] via-[#0d0d14] to-[#09090d] backdrop-blur-xl"
+                      >
+                        {/* Subtle floating neon glows */}
+                        <div className="absolute inset-0 pointer-events-none">
+                          {/* Soft purple top-left bloom */}
+                          <div className="absolute -top-16 -left-16 w-64 h-64 bg-purple-500/15 blur-[90px] rounded-full" />
+
+                          {/* Slight pink/indigo bottom-right bloom */}
+                          <div className="absolute bottom-0 right-0 w-72 h-72 bg-pink-500/10 blur-[100px] rounded-full" />
+
+                          {/* Faint white center glow (VERY subtle) */}
+                          <div
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+                        w-48 h-48 bg-white/5 blur-[120px] rounded-full"
+                          />
+                        </div>
                       </div>
-                      <p className="text-lg font-semibold text-slate-800 mb-1">
-                        Ready to Begin
-                      </p>
-                      <p className="text-sm text-slate-600">
-                        Activate your camera to start
-                      </p>
+
+                      {/* Foreground UI (ensure above background) */}
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className="relative z-10 w-16 h-16 rounded-full bg-white/10 ring-1 ring-white/10 flex items-center justify-center mb-4">
+                          <FaCamera className="w-7 h-7 text-white/90" />
+                        </div>
+
+                        <p className="relative z-10 text-lg font-semibold text-white/90 mb-1">
+                          Ready to Begin
+                        </p>
+                        <p className="relative z-10 text-sm text-white/70 max-w-xs">
+                          Activate your camera to start
+                        </p>
+                      </div>
                     </div>
                   )}
 
+                  {/* Stream present but no dress selected */}
                   {stream && !selectedDress && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-slate-50">
-                      <div className="w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+                      <div className="relative z-10 w-16 h-16 rounded-full bg-purple-100 flex items-center justify-center mb-4">
                         <FaTshirt className="w-7 h-7 text-purple-600" />
                       </div>
-                      <p className="text-lg font-semibold text-slate-800 mb-1">
+                      <p className="relative z-10 text-lg font-semibold text-slate-800 mb-1">
                         Select an Outfit
                       </p>
-                      <p className="text-sm text-slate-600">
+                      <p className="relative z-10 text-sm text-slate-600">
                         Choose from the collection above
                       </p>
                     </div>
                   )}
 
+                  {/* Loading overlay */}
                   {loading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95">
                       <div className="relative mb-4">
