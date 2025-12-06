@@ -27,6 +27,15 @@ CORS(app, origins=["https://istylear.netlify.app", "http://localhost:5173"],
      allow_headers=["Content-Type", "Authorization"],
      supports_credentials=True)
 
+# Ensure CORS headers on all responses
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = request.headers.get('Origin', '*')
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
+
 # ----------------------
 # Routes
 # ----------------------
@@ -66,67 +75,53 @@ def smooth_points(points, alpha=0.6):
 # ----------------------
 @app.route('/tryon', methods=['POST', 'OPTIONS'])
 def tryon():
-    # Handle preflight OPTIONS request
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200
-
-    print("Starting tryon request")
     try:
-               # Try to parse JSON safely (won't raise if body is not JSON)
+        # Handle preflight OPTIONS request
+        if request.method == 'OPTIONS':
+            return jsonify({'status': 'ok'}), 200
+
+        # Parse JSON safely
         data = request.get_json(silent=True) or {}
 
-        # Debug prints to help inspect what the server receives (check Render logs)
-        print("Received Content-Type:", request.content_type)
-        print("Received JSON:", data)
-        print("Received form keys:", list(request.form.keys()))
-        print("Received files:", list(request.files.keys()))
-
-        # Accept frame from JSON or form fields
+        # Get frame data
         frame_data = data.get('frame') or request.form.get('frame')
+        if not frame_data and 'frame' in request.files:
+            uploaded = request.files['frame']
+            file_bytes = uploaded.read()
+            if len(file_bytes) > 10 * 1024 * 1024:  # 10MB limit
+                return jsonify({'error': 'Frame image too large'}), 400
+            frame_data = base64.b64encode(file_bytes).decode('utf-8')
 
-        # Accept multiple variants of shirt URL keys
+        # Get shirt URL
         shirt_url = (
-            data.get('shirtUrl')
-            or data.get('shirt_url')
-            or request.form.get('shirtUrl')
-            or request.form.get('shirt_url')
+            data.get('shirtUrl') or data.get('shirt_url') or
+            request.form.get('shirtUrl') or request.form.get('shirt_url')
         )
 
-        # If a file was uploaded under the name 'frame', convert it to base64 so existing flow works
-        if not frame_data and 'frame' in request.files:
-            try:
-                uploaded = request.files['frame']
-                file_bytes = uploaded.read()
-                frame_data = base64.b64encode(file_bytes).decode('utf-8')
-                print("Converted uploaded frame file to base64 (len):", len(frame_data))
-            except Exception as e:
-                print("Error reading uploaded file 'frame':", e)
-                # continue — validation below will catch missing data if any
-
-        # Only return 400 when BOTH required inputs are missing
-        if not frame_data and not shirt_url:
-            print(f"Error: Missing data - frame_data: {bool(frame_data)}, shirt_url: {bool(shirt_url)}")
+        if not frame_data or not shirt_url:
             return jsonify({'error': 'Missing frame or shirtUrl'}), 400
 
+        # Validate shirt URL
+        if not shirt_url.startswith(('http://', 'https://')):
+            return jsonify({'error': 'Invalid shirt URL'}), 400
 
-        # Decode frame
+        # Decode frame with size check
         try:
             img_bytes = base64.b64decode(frame_data)
+            if len(img_bytes) > 10 * 1024 * 1024:  # 10MB limit
+                return jsonify({'error': 'Frame image too large'}), 400
             img = Image.open(BytesIO(img_bytes))
             img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
             h, w, _ = img.shape
-        except Exception as e:
-            print(f"Error decoding image: {e}")
+        except Exception:
             return jsonify({'error': 'Invalid image data'}), 400
 
         # Pose detection
         try:
             results = pose.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             if not results.pose_landmarks:
-                print("No pose landmarks detected")
                 return jsonify({'result': None}), 200
-        except Exception as e:
-            print(f"Error in pose detection: {e}")
+        except Exception:
             return jsonify({'error': 'Pose detection failed'}), 500
 
         lm = results.pose_landmarks.landmark
@@ -149,57 +144,46 @@ def tryon():
         x2 = min(w, x1 + shirt_width)
         y2 = min(h, y1 + shirt_height)
 
-        # Load shirt image from URL
+        # Load shirt image from URL with timeout
         try:
-            shirt_resp = cv2.imdecode(
-                np.frombuffer(requests.get(shirt_url, timeout=10).content, np.uint8),
-                cv2.IMREAD_UNCHANGED
-            )
-        except Exception as e:
-            print(f"Error loading shirt image from URL: {e}")
+            resp = requests.get(shirt_url, timeout=10)
+            resp.raise_for_status()
+            shirt_resp = cv2.imdecode(np.frombuffer(resp.content, np.uint8), cv2.IMREAD_UNCHANGED)
+        except Exception:
             return jsonify({'error': 'Failed to load shirt image'}), 400
 
-        if shirt_resp is not None:
-            try:
-                shirt_resized = cv2.resize(shirt_resp, (x2 - x1, y2 - y1))
-                overlay = np.zeros((h, w, 4), dtype=np.uint8)
-
-                if shirt_resized.shape[2] == 4:
-                    # Use alpha channel
-                    alpha = shirt_resized[:, :, 3]
-                    for c in range(0, 3):
-                        overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
-                    overlay[y1:y2, x1:x2, 3] = alpha
-                else:
-                    # No alpha channel
-                    for c in range(0, 3):
-                        overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
-                    overlay[y1:y2, x1:x2, 3] = 255
-            except Exception as e:
-                print(f"Error processing shirt overlay: {e}")
-                return jsonify({'error': 'Failed to process shirt overlay'}), 500
-        else:
-            print("Failed to load shirt image")
+        if shirt_resp is None:
             return jsonify({'result': None}), 200
+
+        try:
+            shirt_resized = cv2.resize(shirt_resp, (x2 - x1, y2 - y1))
+            overlay = np.zeros((h, w, 4), dtype=np.uint8)
+
+            if shirt_resized.shape[2] == 4:
+                alpha = shirt_resized[:, :, 3]
+                for c in range(3):
+                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
+                overlay[y1:y2, x1:x2, 3] = alpha
+            else:
+                for c in range(3):
+                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
+                overlay[y1:y2, x1:x2, 3] = 255
+        except Exception:
+            return jsonify({'error': 'Failed to process shirt overlay'}), 500
 
         try:
             _, buffer = cv2.imencode('.png', overlay)
             result_b64 = base64.b64encode(buffer).decode('utf-8')
             return jsonify({'result': result_b64}), 200
-        except Exception as e:
-            print(f"Error encoding result: {e}")
+        except Exception:
             return jsonify({'error': 'Failed to encode result'}), 500
 
-    except Exception as e:
-        print(f"Unexpected error in tryon: {e}")
-        import traceback
-        traceback.print_exc()
+    except Exception:
         return jsonify({'error': 'Internal server error'}), 500
 
 # ----------------------
 # Run the app
 # ----------------------
 if __name__ == "__main__":
-    print("✅ Try-On backend running...")
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
