@@ -231,7 +231,7 @@ export default function TryFreePage() {
           </a>
         </div>
 
-        {/* Clothing Selection */}
+        {/* Clothing-Selection */}
         <div className="mb-8 flex flex-col items-center">
           <div className="flex items-center gap-2 mb-4">
             <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
