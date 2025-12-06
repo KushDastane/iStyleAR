@@ -22,6 +22,7 @@ export default function TryFreePage() {
   const processingRef = useRef(false);
   const isLiveTryOnRef = useRef(false);
   const lastOverlayRef = useRef(null);
+  const BACKEND = import.meta.env.VITE_API_URL || "";
 
   const demoClothes = [
     {
@@ -157,7 +158,7 @@ export default function TryFreePage() {
       const frameData = downscaledCanvas
         .toDataURL("image/jpeg", 0.8)
         .split(",")[1];
-      const response = await fetch(`/api/tryon`, {
+      const response = await fetch(`${BACKEND}/tryon`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
