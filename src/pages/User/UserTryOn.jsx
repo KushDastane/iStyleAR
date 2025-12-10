@@ -12,9 +12,9 @@ import {
   getDocs,
 } from "firebase/firestore";
 import CreativeCarousel from "../../Components/CreativeCarousel";
-import ARWakeUpModal from "../../Components/ARWakeUpModal";
 import { FaRegEye, FaMagic, FaCamera, FaStop } from "react-icons/fa";
 import axios from "axios";
+import ARWakeUpModal from "../../Components/ARWakeUpModal";
 
 // Gesture controller import
 import {
@@ -45,6 +45,9 @@ export default function UserTryOn() {
   // Countdown 3→2→1
   const [countdown, setCountdown] = useState(null);
 
+  // AR Wake Up Modal
+  const [showWakeUpModal, setShowWakeUpModal] = useState(false);
+
   const sizes = ["S", "M", "L", "XL", "XXL"];
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -62,15 +65,6 @@ export default function UserTryOn() {
 
   const captureButtonRef = useRef(null);
   const cameraSectionRef = useRef(null);
-
-  const [showWakeModal, setShowWakeModal] = useState(false);
-  const [isStarting, setIsStarting] = useState(false);
-
-  // computed health url used by modal
-  const BACKEND = import.meta.env.VITE_API_URL || "";
-  const healthUrl = BACKEND
-    ? `${BACKEND.replace(/\/$/, "")}/health`
-    : "/health";
 
   // Scroll into view on mount
   useEffect(() => {
@@ -355,8 +349,14 @@ export default function UserTryOn() {
   // ---------------- LIVE TRY-ON TOGGLE ----------------
 
   const startLiveTryOn = () => {
-    if (!selectedDress || !videoRef.current || !stream) {
+    if (!selectedDress || !videoRef.current) {
       toast.error("Start camera and select a dress first.");
+      return;
+    }
+
+    // extra safety: ensure video is playing
+    if (videoRef.current.readyState < 2) {
+      setTimeout(startLiveTryOn, 200);
       return;
     }
 
@@ -365,6 +365,13 @@ export default function UserTryOn() {
       return;
     }
 
+    // First, show the AR Wake Up Modal
+    setShowWakeUpModal(true);
+  };
+
+  const handleARReady = () => {
+    // Called when AR backend is ready
+    setShowWakeUpModal(false);
     setIsLiveTryOn(true);
     isLiveTryOnRef.current = true;
     setGestureMessage("");
@@ -379,6 +386,10 @@ export default function UserTryOn() {
 
     animationRef.current = requestAnimationFrame(processFrame);
     startGestureDetection();
+  };
+
+  const handleWakeUpClose = () => {
+    setShowWakeUpModal(false);
   };
 
   const stopLiveTryOn = () => {
@@ -487,44 +498,6 @@ export default function UserTryOn() {
     }
 
     setUploading(false);
-  };
-
-  // ---------------- Wake modal integration ----------------
-
-  const handleStartClick = async () => {
-    setIsStarting(true);
-    setShowWakeModal(true);
-
-    // optimistic ping to wake server quickly
-    try {
-      fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => {});
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  const handleBackendReady = async () => {
-    // modal detected backend is live
-    setShowWakeModal(false);
-
-    // Ensure webcam/permission is available — if not, start webcam
-    try {
-      if (!stream) {
-        await startWebcam();
-        // small delay to allow video element to attach and metadata to load
-        await new Promise((r) => setTimeout(r, 250));
-      }
-    } catch (e) {
-      // user denied camera or error — abort start
-      setIsStarting(false);
-      return;
-    }
-
-    // Start actual live try-on
-    startLiveTryOn();
-
-    // allow button to be clickable again (the live try-on UI has separate stop)
-    setIsStarting(false);
   };
 
   // ---------------- UI ----------------
@@ -856,17 +829,16 @@ export default function UserTryOn() {
                   </button>
                 ) : !isLiveTryOn ? (
                   <button
-                    onClick={handleStartClick}
+                    onClick={startLiveTryOn}
                     className={`flex flex-col items-center group ${
                       highlightLive ? "animate-pulse" : ""
                     }`}
-                    disabled={isStarting}
                   >
                     <div className="w-11 h-11 rounded-full flex items-center justify-center bg-purple-50 border border-purple-200 group-hover:bg-purple-100 transition">
                       <FaMagic className="text-xl text-purple-600" />
                     </div>
                     <span className="text-[11px] font-medium mt-1 text-purple-700">
-                      {isStarting ? "Starting..." : "Live"}
+                      Live
                     </span>
                   </button>
                 ) : (
@@ -952,16 +924,10 @@ export default function UserTryOn() {
         </div>
       </div>
 
-      {/* AR Wake-up modal (mascot) */}
-      <ARWakeUpModal
-        open={showWakeModal}
-        healthUrl={healthUrl}
-        onReady={handleBackendReady}
-        onClose={() => {
-          setShowWakeModal(false);
-          setIsStarting(false);
-        }}
-      />
+      {/* AR Wake Up Modal */}
+      {showWakeUpModal && (
+        <ARWakeUpModal onReady={handleARReady} onClose={handleWakeUpClose} />
+      )}
     </div>
   );
 }
