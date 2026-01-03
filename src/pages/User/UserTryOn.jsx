@@ -47,6 +47,12 @@ export default function UserTryOn() {
 
   // AR Wake Up Modal
   const [showWakeUpModal, setShowWakeUpModal] = useState(false);
+  const BACKEND = import.meta.env.VITE_API_URL || "";
+
+  const healthUrl = BACKEND
+    ? `${BACKEND.replace(/\/$/, "")}/health`
+    : "/health";
+
 
   const sizes = ["S", "M", "L", "XL", "XXL"];
   const videoRef = useRef(null);
@@ -56,6 +62,7 @@ export default function UserTryOn() {
   const isProcessingRef = useRef(false);
   const overlayFrozenRef = useRef(false);
   const isLiveTryOnRef = useRef(false);
+  const isServerReadyRef = useRef(false);
   const carouselRef = useRef(null);
   const selectedDressRef = useRef(null);
 
@@ -198,11 +205,12 @@ export default function UserTryOn() {
 
     const currentDress = selectedDressRef.current;
 
-    // Don't call backend when overlay is frozen (during countdown)
+    // Don't call backend when overlay is frozen (during countdown) or server not ready
     if (
       !overlayFrozenRef.current &&
       !isProcessingRef.current &&
-      currentDress?.imageUrl
+      currentDress?.imageUrl &&
+      isServerReadyRef.current
     ) {
       isProcessingRef.current = true;
       try {
@@ -374,6 +382,7 @@ export default function UserTryOn() {
     setShowWakeUpModal(false);
     setIsLiveTryOn(true);
     isLiveTryOnRef.current = true;
+    isServerReadyRef.current = true;
     setGestureMessage("");
     setCountdown(null);
     overlayFrozenRef.current = false;
@@ -390,11 +399,13 @@ export default function UserTryOn() {
 
   const handleWakeUpClose = () => {
     setShowWakeUpModal(false);
+    isServerReadyRef.current = false;
   };
 
   const stopLiveTryOn = () => {
     setIsLiveTryOn(false);
     isLiveTryOnRef.current = false;
+    isServerReadyRef.current = false;
     setGestureMessage("");
     setCountdown(null);
     overlayFrozenRef.current = false;
@@ -405,6 +416,7 @@ export default function UserTryOn() {
   const handleReset = () => {
     setSelectedDress(null);
     stopLiveTryOn();
+    isServerReadyRef.current = false;
     lastOverlayRef.current = null;
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
@@ -429,14 +441,8 @@ export default function UserTryOn() {
     setTryOnImage(null);
     setIsPublic(false);
     if (stream && selectedDress) {
-      setIsLiveTryOn(true);
-      isLiveTryOnRef.current = true;
-      overlayFrozenRef.current = false;
-      missedFramesRef.current = 0;
-      setShowGestureGuide(true);
-      setShowDistanceWarning(false);
-      animationRef.current = requestAnimationFrame(processFrame);
-      startGestureDetection();
+      isServerReadyRef.current = false;
+      setShowWakeUpModal(true);
     }
   };
 
@@ -926,7 +932,12 @@ export default function UserTryOn() {
 
       {/* AR Wake Up Modal */}
       {showWakeUpModal && (
-        <ARWakeUpModal onReady={handleARReady} onClose={handleWakeUpClose} />
+        <ARWakeUpModal
+          open={showWakeUpModal}
+          healthUrl={healthUrl} // ✅ REQUIRED
+          onReady={handleARReady}
+          onClose={handleWakeUpClose}
+        />
       )}
     </div>
   );

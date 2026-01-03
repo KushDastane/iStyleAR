@@ -13,7 +13,7 @@ export default function CreativeCarousel({
   showTryAgain = false,
   onTryAgain,
   buttonText = "Try Again",
-  slidesPerViewDesktop = 4,
+  slidesPerViewDesktop = 3,
   isItemAdded,
   hideNames = false,
 }) {
