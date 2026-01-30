@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { db } from "../../firebase/config";
 import { toast } from "react-toastify";
 import { useAuth } from "../../context/AuthContext";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   collection,
   addDoc,
@@ -24,9 +25,12 @@ import { HandLandmarker } from "@mediapipe/tasks-vision";
 
 export default function UserTryOn() {
   const { user } = useAuth();
+  const location = useLocation();
+  const deepLinkedCloth = location.state?.cloth;
+
   const [freeTryonsLeft, setFreeTryonsLeft] = useState(0);
   const [wardrobeItems, setWardrobeItems] = useState([]);
-  const [selectedDress, setSelectedDress] = useState(null);
+  const [selectedDress, setSelectedDress] = useState(deepLinkedCloth || null);
   const [tryOnImage, setTryOnImage] = useState(null);
   const [selectedSize, setSelectedSize] = useState("M");
   const [isPublic, setIsPublic] = useState(false);
@@ -108,10 +112,15 @@ export default function UserTryOn() {
       const snap = await getDocs(collection(db, "users", user.uid, "wardrobe"));
       const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setWardrobeItems(items);
-      if (items.length > 0 && !selectedDress) setSelectedDress(items[0]);
+
+      if (deepLinkedCloth) {
+        setSelectedDress(deepLinkedCloth);
+      } else if (items.length > 0 && !selectedDress) {
+        setSelectedDress(items[0]);
+      }
     };
     fetchWardrobe();
-  }, [user, selectedDress]);
+  }, [user, deepLinkedCloth]);
 
   // ---------------- LOAD HAND DETECTOR ----------------
 
@@ -319,7 +328,7 @@ export default function UserTryOn() {
       const nextDress = wardrobeItems[nextIndex];
       setSelectedDress(nextDress);
       setGestureMessage("👍 Next Dress");
-      carouselRef.current?.slideTo(nextIndex);
+      carouselRef.current?.slideToItem(nextIndex);
     }
 
     if (g === "PREV") {
@@ -328,7 +337,7 @@ export default function UserTryOn() {
       const prevDress = wardrobeItems[prevIndex];
       setSelectedDress(prevDress);
       setGestureMessage("👎 Previous Dress");
-      carouselRef.current?.slideTo(prevIndex);
+      carouselRef.current?.slideToItem(prevIndex);
     }
   };
 

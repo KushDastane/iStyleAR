@@ -106,7 +106,7 @@ export default function ProtectedLayout() {
                 />
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
               </div>
-              <img className="sm:w-30 mt-3 w-20 " src="/trade_light.png" alt="" />
+              <img className="sm:w-25 mt-3 w-20 " src="/trade_light.png" alt="" />
             </Link>
 
             {/* Middle: Nav Links (Desktop) */}
