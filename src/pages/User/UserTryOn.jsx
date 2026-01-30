@@ -16,11 +16,11 @@ import { FaRegEye, FaMagic, FaCamera, FaStop } from "react-icons/fa";
 import axios from "axios";
 import ARWakeUpModal from "../../Components/ARWakeUpModal";
 
-// Gesture controller import
 import {
   createHandDetector,
   detectGesture,
 } from "../../utils/gestureController";
+import { HandLandmarker } from "@mediapipe/tasks-vision";
 
 export default function UserTryOn() {
   const { user } = useAuth();
@@ -69,6 +69,7 @@ export default function UserTryOn() {
   const detectorRef = useRef(null);
   const lastGestureTimeRef = useRef(0);
   const missedFramesRef = useRef(0);
+  const lastLandmarksRef = useRef([]);
 
   const captureButtonRef = useRef(null);
   const cameraSectionRef = useRef(null);
@@ -203,6 +204,17 @@ export default function UserTryOn() {
       ctx.drawImage(lastOverlayRef.current, 0, 0, canvas.width, canvas.height);
     }
 
+
+
+    // Draw Tracking Visualization (Hand Skeleton)
+    if (isLiveTryOnRef.current && lastLandmarksRef.current?.length > 0) {
+      try {
+        drawLandmarks(ctx, lastLandmarksRef.current);
+      } catch (err) {
+        console.error("Error drawing landmarks:", err);
+      }
+    }
+
     const currentDress = selectedDressRef.current;
 
     // Don't call backend when overlay is frozen (during countdown) or server not ready
@@ -335,6 +347,7 @@ export default function UserTryOn() {
       );
 
       const landmarks = results?.landmarks;
+      lastLandmarksRef.current = landmarks || []; // Update for visualization
       const gesture = detectGesture(landmarks);
 
       if (gesture) {
@@ -504,6 +517,73 @@ export default function UserTryOn() {
     }
 
     setUploading(false);
+  };
+
+  const drawLandmarks = (ctx, landmarks) => {
+    if (!landmarks || !landmarks.length) return;
+
+    // Tech/Neon style settings
+    const CONNECTOR_COLOR = "#00FFC2"; // Cyan/Teal
+    const LANDMARK_COLOR = "#A855F7"; // Purple
+    const LINE_WIDTH = 4; // Thicker for visibility
+    const RADIUS = 6;    // Larger for visibility
+
+    // Fallback connections if MediaPipe import fails
+    const CONNECTIONS = HandLandmarker?.HAND_CONNECTIONS || [
+      { start: 0, end: 1 }, { start: 1, end: 2 }, { start: 2, end: 3 }, { start: 3, end: 4 }, // Thumb
+      { start: 0, end: 5 }, { start: 5, end: 6 }, { start: 6, end: 7 }, { start: 7, end: 8 }, // Index
+      { start: 0, end: 9 }, { start: 9, end: 10 }, { start: 10, end: 11 }, { start: 11, end: 12 }, // Middle
+      { start: 0, end: 13 }, { start: 13, end: 14 }, { start: 14, end: 15 }, { start: 15, end: 16 }, // Ring
+      { start: 0, end: 17 }, { start: 17, end: 18 }, { start: 18, end: 19 }, { start: 19, end: 20 }, // Pinky
+      { start: 5, end: 9 }, { start: 9, end: 13 }, { start: 13, end: 17 } // Palm
+    ];
+
+    for (const hand of landmarks) {
+      // Draw connectors
+      ctx.save();
+      ctx.strokeStyle = CONNECTOR_COLOR;
+      ctx.lineWidth = LINE_WIDTH;
+      ctx.lineCap = "round";
+
+      for (const connection of CONNECTIONS) {
+        const start = hand[connection.start];
+        const end = hand[connection.end];
+
+        // Safety check
+        if (!start || !end) continue;
+
+        const x1 = start.x * ctx.canvas.width;
+        const y1 = start.y * ctx.canvas.height;
+        const x2 = end.x * ctx.canvas.width;
+        const y2 = end.y * ctx.canvas.height;
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // Draw landmarks
+      ctx.save();
+      ctx.fillStyle = LANDMARK_COLOR;
+      for (const point of hand) {
+        const x = point.x * ctx.canvas.width;
+        const y = point.y * ctx.canvas.height;
+
+        ctx.beginPath();
+        ctx.arc(x, y, RADIUS, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Inner white dot for "tech" look
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(x, y, RADIUS / 2, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = LANDMARK_COLOR;
+      }
+      ctx.restore();
+    }
   };
 
   // ---------------- UI ----------------
@@ -792,10 +872,9 @@ export default function UserTryOn() {
                     key={size}
                     onClick={() => setSelectedSize(size)}
                     className={`w-12 h-12 rounded-xl text-sm font-semibold transition-all duration-300 flex items-center justify-center
-                      ${
-                        selectedSize === size
-                          ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg scale-110"
-                          : "bg-white text-slate-700 border border-slate-200 hover:border-purple-300 hover:bg-purple-50"
+                      ${selectedSize === size
+                        ? "bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-lg scale-110"
+                        : "bg-white text-slate-700 border border-slate-200 hover:border-purple-300 hover:bg-purple-50"
                       }`}
                   >
                     {size}
@@ -836,9 +915,8 @@ export default function UserTryOn() {
                 ) : !isLiveTryOn ? (
                   <button
                     onClick={startLiveTryOn}
-                    className={`flex flex-col items-center group ${
-                      highlightLive ? "animate-pulse" : ""
-                    }`}
+                    className={`flex flex-col items-center group ${highlightLive ? "animate-pulse" : ""
+                      }`}
                   >
                     <div className="w-11 h-11 rounded-full flex items-center justify-center bg-purple-50 border border-purple-200 group-hover:bg-purple-100 transition">
                       <FaMagic className="text-xl text-purple-600" />
