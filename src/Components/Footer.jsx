@@ -31,9 +31,11 @@ export default function Footer() {
           {/* Brand Section */}
           <div className="lg:col-span-4 space-y-4">
             <div className="space-y-3">
-              <h2 className="text-3xl md:text-4xl font-bold text-white/80">
-                iStyleAR
-              </h2>
+              <img
+                src="/trade.png"
+                alt="iStyleAR"
+                className="h-10 md:h-12 w-auto object-contain mb-4"
+              />
               <p className="text-gray-300 text-base leading-relaxed max-w-sm">
                 Experience fashion in Augmented Reality. Transform the way you
                 shop and style with cutting-edge AR technology.

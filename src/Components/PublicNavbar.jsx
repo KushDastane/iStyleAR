@@ -121,11 +121,10 @@ export default function PublicNavbar() {
   return (
     <nav
       ref={navRef}
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
-        scrolled
+      className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${scrolled
           ? "bg-white/95 backdrop-blur-lg shadow-lg border-gray-200"
           : "bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm"
-      }`}
+        }`}
     >
       <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         {/* LEFT — LOGO */}
@@ -133,23 +132,11 @@ export default function PublicNavbar() {
           onClick={handleLogoClick}
           className="flex items-center gap-3 font-bold text-xl cursor-pointer group"
         >
-          <div
-            className={`p-2 rounded-xl transition-all duration-300 ${
-              scrolled
-                ? "bg-gradient-to-br from-indigo-600 to-purple-600"
-                : "bg-white/20"
-            } group-hover:scale-110 group-hover:rotate-6`}
-          >
-            <FaTshirt className="text-white text-xl" />
-          </div>
-
-          <span
-            className={`transition-colors duration-300 ${
-              scrolled ? "text-gray-900" : "text-white"
-            }`}
-          >
-            iStyleAR
-          </span>
+          <img
+            src={scrolled ? "/trade_light.png" : "/trade_dark.png"}
+            alt="iStyleAR"
+            className="h-6 sm:h-8 w-auto object-contain transition-all duration-300 transform group-hover:scale-105"
+          />
         </div>
 
         {/* CENTER — PERFECTLY CENTERED NAV LINKS */}
@@ -160,11 +147,10 @@ export default function PublicNavbar() {
               <button
                 key={link.id}
                 onClick={(e) => handleNavClick(e, link.id)}
-                className={`group flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-300 ${
-                  scrolled
+                className={`group flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-300 ${scrolled
                     ? "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
                     : "text-white hover:bg-white/20"
-                }`}
+                  }`}
               >
                 <Icon className="text-base group-hover:scale-110 transition-transform duration-300" />
                 <span>{link.label}</span>
@@ -177,11 +163,10 @@ export default function PublicNavbar() {
         <div className="hidden sm:flex items-center gap-3">
           <button
             onClick={(e) => handleNavClick(e, "try-free-section")}
-            className={`group flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
-              scrolled
+            className={`group flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${scrolled
                 ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700"
                 : "bg-white text-indigo-600 shadow-lg hover:shadow-xl hover:bg-gray-50"
-            }`}
+              }`}
           >
             <FaCamera />
             <span>Try AR</span>
@@ -190,11 +175,10 @@ export default function PublicNavbar() {
 
           <Link
             to="/login"
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 border-2 ${
-              scrolled
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 border-2 ${scrolled
                 ? "border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white"
                 : "border-white text-white hover:bg-white hover:text-indigo-600"
-            }`}
+              }`}
           >
             <FaSignInAlt />
             <span>Sign In</span>
@@ -203,23 +187,20 @@ export default function PublicNavbar() {
 
         {/* MOBILE HAMBURGER */}
         <button
-          className={`hamburger-btn md:hidden p-2 rounded-lg transition-all duration-300 ${
-            scrolled
+          className={`hamburger-btn md:hidden p-2 rounded-lg transition-all duration-300 ${scrolled
               ? "text-gray-900 hover:bg-gray-100"
               : "text-white hover:bg-white/20"
-          }`}
+            }`}
           onClick={toggleMenu}
         >
           <div className="relative w-6 h-6">
             <FaBars
-              className={`absolute inset-0 text-2xl transition-all duration-300 ${
-                open ? "opacity-0 rotate-180" : "opacity-100 rotate-0"
-              }`}
+              className={`absolute inset-0 text-2xl transition-all duration-300 ${open ? "opacity-0 rotate-180" : "opacity-100 rotate-0"
+                }`}
             />
             <FaTimes
-              className={`absolute inset-0 text-2xl transition-all duration-300 ${
-                open ? "opacity-100 rotate-0" : "opacity-0 rotate-180"
-              }`}
+              className={`absolute inset-0 text-2xl transition-all duration-300 ${open ? "opacity-100 rotate-0" : "opacity-0 rotate-180"
+                }`}
             />
           </div>
         </button>
@@ -227,11 +208,10 @@ export default function PublicNavbar() {
       {/* Mobile Menu Panel */}
       <div
         ref={menuRef}
-        className={`md:hidden transition-all duration-500 origin-top ${
-          open
+        className={`md:hidden transition-all duration-500 origin-top ${open
             ? "max-h-screen opacity-100 translate-y-0"
             : "max-h-0 opacity-0 -translate-y-4 overflow-hidden"
-        } bg-white/98 backdrop-blur-lg shadow-2xl border-t border-gray-200`}
+          } bg-white/98 backdrop-blur-lg shadow-2xl border-t border-gray-200`}
       >
         <div className="px-6 py-6 flex flex-col gap-2">
           {navLinks.map((link, i) => {
@@ -240,9 +220,8 @@ export default function PublicNavbar() {
               <button
                 key={link.id}
                 onClick={(e) => handleNavClick(e, link.id)}
-                className={`group text-left flex items-center gap-4 px-4 py-3.5 rounded-xl text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-300 transform hover:translate-x-2 ${
-                  open ? "animate-slideIn" : ""
-                }`}
+                className={`group text-left flex items-center gap-4 px-4 py-3.5 rounded-xl text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-300 transform hover:translate-x-2 ${open ? "animate-slideIn" : ""
+                  }`}
                 style={{ animationDelay: `${i * 60}ms` }}
               >
                 <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-indigo-100 transition-colors">

@@ -110,11 +110,13 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-            className="text-5xl sm:text-5xl md:text-6xl lg:text-8xl font-bold tracking-tight leading-tight pt-6"
+            className="flex justify-center pt-6"
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-200 to-white ">
-              iStyleAR
-            </span>
+            <img
+              src="/trade.png"
+              alt="brand_name"
+              className="mx-auto block h-16 sm:h-24 md:h-32 lg:h-40 w-auto object-contain drop-shadow-lg"
+            />
           </motion.h1>
 
           <motion.p
