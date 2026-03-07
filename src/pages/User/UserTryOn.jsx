@@ -361,14 +361,29 @@ export default function UserTryOn() {
     const MAX_TILT_RAD = 0.65; // ~37deg
     angle = Math.max(-MAX_TILT_RAD, Math.min(MAX_TILT_RAD, angle));
 
+    // Approximate yaw (side rotation) using shoulder depth difference + shoulder span.
+    const shoulderZDelta = (rightShoulder.z ?? 0) - (leftShoulder.z ?? 0);
+    const shoulderXSpan = Math.max(
+      0.01,
+      Math.abs(rightShoulder.x - leftShoulder.x)
+    );
+    const yawRatio = shoulderZDelta / shoulderXSpan;
+    const yawStrength = Math.min(1, Math.abs(yawRatio) * 0.25);
+    const yawDirection = Math.sign(yawRatio) || 1;
+
+    // 2.5D effect: compress width on side turn and shift cloth slightly.
+    const scaleX = Math.max(0.65, 1 - yawStrength * 0.45);
+    const depthOffsetX = yawDirection * width * yawStrength * 0.08;
+
     return {
       centerX,
       centerY,
       width,
       height,
       angle,
-      scaleX: 1,
+      scaleX,
       scaleY: 1,
+      depthOffsetX,
     };
   };
 
@@ -394,6 +409,9 @@ export default function UserTryOn() {
       angle: previous.angle + alpha * safeDelta,
       scaleX: alpha * current.scaleX + (1 - alpha) * previous.scaleX,
       scaleY: alpha * current.scaleY + (1 - alpha) * previous.scaleY,
+      depthOffsetX:
+        alpha * (current.depthOffsetX ?? 0) +
+        (1 - alpha) * (previous.depthOffsetX ?? 0),
     };
   };
 
@@ -408,6 +426,7 @@ export default function UserTryOn() {
       angle: 0,
       scaleX: 1,
       scaleY: 1,
+      depthOffsetX: 0,
     };
   };
 
@@ -415,7 +434,10 @@ export default function UserTryOn() {
     if (!ctx || !image || !transform) return;
 
     ctx.save();
-    ctx.translate(transform.centerX, transform.centerY);
+    ctx.translate(
+      transform.centerX + (transform.depthOffsetX ?? 0),
+      transform.centerY
+    );
     ctx.rotate(transform.angle);
     ctx.scale(transform.scaleX, transform.scaleY);
     ctx.drawImage(
@@ -1305,6 +1327,11 @@ skipped_detections = ${skippedDetectionRef.current}
     </div>
   );
 }
+
+
+
+
+
 
 
 
