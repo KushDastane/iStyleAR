@@ -350,10 +350,16 @@ export default function UserTryOn() {
     const height = Math.max(width * 1.35, torsoHeight * 1.7);
     const centerX = shoulderCx;
     const centerY = shoulderCy + torsoHeight * 0.52;
-    const angle = Math.atan2(
+    const rawAngle = Math.atan2(
       rightShoulder.y - leftShoulder.y,
       rightShoulder.x - leftShoulder.x
     );
+    // Normalize to prevent 180deg flips ("ulta") when pose landmarks jitter.
+    let angle = rawAngle;
+    if (angle > Math.PI / 2) angle -= Math.PI;
+    if (angle < -Math.PI / 2) angle += Math.PI;
+    const MAX_TILT_RAD = 0.65; // ~37deg
+    angle = Math.max(-MAX_TILT_RAD, Math.min(MAX_TILT_RAD, angle));
 
     return {
       centerX,
@@ -369,12 +375,23 @@ export default function UserTryOn() {
   const smoothOverlayTransform = (current, previous, alpha) => {
     if (!current) return previous;
     if (!previous) return current;
+
+    const angleDelta = Math.atan2(
+      Math.sin(current.angle - previous.angle),
+      Math.cos(current.angle - previous.angle)
+    );
+    const MAX_ANGLE_STEP = 0.35; // ignore sudden pose glitches
+    const safeDelta =
+      Math.abs(angleDelta) > MAX_ANGLE_STEP
+        ? Math.sign(angleDelta) * MAX_ANGLE_STEP
+        : angleDelta;
+
     return {
       centerX: alpha * current.centerX + (1 - alpha) * previous.centerX,
       centerY: alpha * current.centerY + (1 - alpha) * previous.centerY,
       width: alpha * current.width + (1 - alpha) * previous.width,
       height: alpha * current.height + (1 - alpha) * previous.height,
-      angle: alpha * current.angle + (1 - alpha) * previous.angle,
+      angle: previous.angle + alpha * safeDelta,
       scaleX: alpha * current.scaleX + (1 - alpha) * previous.scaleX,
       scaleY: alpha * current.scaleY + (1 - alpha) * previous.scaleY,
     };
@@ -1288,6 +1305,8 @@ skipped_detections = ${skippedDetectionRef.current}
     </div>
   );
 }
+
+
 
 
 
