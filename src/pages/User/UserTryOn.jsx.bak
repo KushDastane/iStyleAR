@@ -21,16 +21,7 @@ import {
   createHandDetector,
   detectGesture,
 } from "../../utils/gestureController";
-import {
-  FilesetResolver,
-  HandLandmarker,
-  PoseLandmarker,
-} from "@mediapipe/tasks-vision";
-
-let handDetectorSingleton = null;
-let handDetectorPromise = null;
-let poseDetectorSingleton = null;
-let poseDetectorPromise = null;
+import { HandLandmarker } from "@mediapipe/tasks-vision";
 
 export default function UserTryOn() {
   const { user } = useAuth();
@@ -70,10 +61,9 @@ export default function UserTryOn() {
   const sizes = ["S", "M", "L", "XL", "XXL"];
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
-  const animationRef = useRef(null); // render RAF
-  const detectionIntervalRef = useRef(null); // detection interval
-  const clothingImageCacheRef = useRef(new Map());
-  const overlayStateRef = useRef(null);
+  const animationRef = useRef(null);
+  const lastOverlayRef = useRef(null);
+  const isProcessingRef = useRef(false);
   const overlayFrozenRef = useRef(false);
   const isLiveTryOnRef = useRef(false);
   const isServerReadyRef = useRef(false);
@@ -81,13 +71,9 @@ export default function UserTryOn() {
   const selectedDressRef = useRef(null);
 
   const detectorRef = useRef(null);
-  const poseDetectorRef = useRef(null);
   const lastGestureTimeRef = useRef(0);
   const missedFramesRef = useRef(0);
   const lastLandmarksRef = useRef([]);
-  const smoothedLandmarksRef = useRef([]);
-  const isDetectingRef = useRef(false);
-  const skippedDetectionRef = useRef(0);
 
   const captureButtonRef = useRef(null);
   const cameraSectionRef = useRef(null);
@@ -96,13 +82,7 @@ export default function UserTryOn() {
   const frameCounterRef = useRef(0);
   const detectionTimeRef = useRef(0);
   const overlayComputeTimeRef = useRef(0);
-  const frameCaptureTimeRef = useRef(0);
-  const canvasDrawTimeRef = useRef(0);
-  const totalFrameTimeRef = useRef(0);
 
-  const MAX_CANVAS_WIDTH = 640;
-  const DETECTION_INTERVAL_MS = 120; // ~8 FPS
-  const SMOOTHING_ALPHA = 0.6;
   // Scroll into view on mount
   useEffect(() => {
     if (cameraSectionRef.current) {
@@ -150,46 +130,14 @@ export default function UserTryOn() {
   // ---------------- LOAD HAND DETECTOR ----------------
 
   useEffect(() => {
-    if ((detectorRef.current && poseDetectorRef.current) || (handDetectorSingleton && poseDetectorSingleton)) {
-      detectorRef.current = handDetectorSingleton;
-      poseDetectorRef.current = poseDetectorSingleton;
-      return;
-    }
+    if (detectorRef.current) return;
 
     async function loadDetector() {
       try {
-        if (!handDetectorPromise) {
-          handDetectorPromise = createHandDetector();
-        }
-        if (!poseDetectorPromise) {
-          poseDetectorPromise = (async () => {
-            const vision = await FilesetResolver.forVisionTasks(
-              "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-            );
-            return PoseLandmarker.createFromOptions(vision, {
-              baseOptions: {
-                modelAssetPath:
-                  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
-              },
-              runningMode: "VIDEO",
-              numPoses: 1,
-            });
-          })();
-        }
-
-        const [handDetector, poseDetector] = await Promise.all([
-          handDetectorPromise,
-          poseDetectorPromise,
-        ]);
-        handDetectorSingleton = handDetector;
-        poseDetectorSingleton = poseDetector;
-        detectorRef.current = handDetector;
-        poseDetectorRef.current = poseDetector;
-        console.log("Hand and pose detectors loaded");
+        detectorRef.current = await createHandDetector();
+        console.log("Hand detector loaded");
       } catch (err) {
-        handDetectorPromise = null;
-        poseDetectorPromise = null;
-        console.error("Failed to load detectors", err);
+        console.error("Failed to load hand detector", err);
       }
     }
 
@@ -201,60 +149,19 @@ export default function UserTryOn() {
   useEffect(() => {
     return () => {
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
       if (stream) {
         stream.getTracks().forEach((t) => t.stop());
       }
       isLiveTryOnRef.current = false;
-      isDetectingRef.current = false;
     };
   }, [stream]);
 
-  const preloadDressImage = (imageUrl) => {
-    if (!imageUrl) return Promise.resolve(null);
-
-    const cached = clothingImageCacheRef.current.get(imageUrl);
-    if (cached) {
-      if (cached.complete) return Promise.resolve(cached);
-      return new Promise((resolve, reject) => {
-        cached.onload = () => resolve(cached);
-        cached.onerror = reject;
-      });
-    }
-
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        clothingImageCacheRef.current.set(imageUrl, img);
-        resolve(img);
-      };
-      img.onerror = reject;
-      img.src = imageUrl;
-    });
-  };
-
-  // Sync selected dress and preload clothing assets outside the frame loop
+  // Sync selected dress with ref and reset overlay
   useEffect(() => {
     selectedDressRef.current = selectedDress || null;
-    overlayStateRef.current = null;
-
-    if (selectedDress?.imageUrl) {
-      preloadDressImage(selectedDress.imageUrl).catch((err) => {
-        console.error("Failed to preload selected dress image", err);
-      });
-    }
+    lastOverlayRef.current = null;
+    isProcessingRef.current = false;
   }, [selectedDress]);
-
-  useEffect(() => {
-    if (!wardrobeItems?.length) return;
-    wardrobeItems.forEach((item) => {
-      if (item?.imageUrl) {
-        preloadDressImage(item.imageUrl).catch(() => {});
-      }
-    });
-  }, [wardrobeItems]);
 
   // ---------------- START WEBCAM ----------------
 
@@ -290,184 +197,102 @@ export default function UserTryOn() {
 
   // ---------------- FRAME PROCESSING (OVERLAY) ----------------
 
-  const smoothLandmarks = (currentLandmarks, previousLandmarks, alpha) => {
-    if (!currentLandmarks?.length) return [];
-    if (!previousLandmarks?.length) return currentLandmarks;
-
-    return currentLandmarks.map((hand, handIdx) => {
-      const prevHand = previousLandmarks[handIdx];
-      if (!prevHand || prevHand.length !== hand.length) return hand;
-
-      return hand.map((point, pointIdx) => {
-        const prevPoint = prevHand[pointIdx];
-        if (!prevPoint) return point;
-
-        return {
-          ...point,
-          x: alpha * point.x + (1 - alpha) * prevPoint.x,
-          y: alpha * point.y + (1 - alpha) * prevPoint.y,
-          z: alpha * (point.z ?? 0) + (1 - alpha) * (prevPoint.z ?? 0),
-        };
-      });
-    });
-  };
-
-  const syncCanvasSizeToVideo = (video, canvas) => {
-    const videoWidth = video.videoWidth || 640;
-    const videoHeight = video.videoHeight || 480;
-    const targetWidth = Math.min(videoWidth, MAX_CANVAS_WIDTH);
-    const scale = targetWidth / videoWidth;
-    const targetHeight = Math.max(1, Math.round(videoHeight * scale));
-
-    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
-      canvas.width = targetWidth;
-      canvas.height = targetHeight;
-    }
-  };
-
-  const computeOverlayTransform = (poseLandmarks, canvasWidth, canvasHeight) => {
-    const pose = poseLandmarks?.[0];
-    if (!pose || pose.length < 25) return null;
-
-    const leftShoulder = pose[11];
-    const rightShoulder = pose[12];
-    const leftHip = pose[23];
-    const rightHip = pose[24];
-    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return null;
-
-    const shoulderCx = ((leftShoulder.x + rightShoulder.x) * 0.5) * canvasWidth;
-    const shoulderCy = ((leftShoulder.y + rightShoulder.y) * 0.5) * canvasHeight;
-    const hipCx = ((leftHip.x + rightHip.x) * 0.5) * canvasWidth;
-    const hipCy = ((leftHip.y + rightHip.y) * 0.5) * canvasHeight;
-
-    const shoulderSpan = Math.hypot(
-      (rightShoulder.x - leftShoulder.x) * canvasWidth,
-      (rightShoulder.y - leftShoulder.y) * canvasHeight
-    );
-    const torsoHeight = Math.hypot(hipCx - shoulderCx, hipCy - shoulderCy);
-
-    const width = Math.max(170, shoulderSpan * 1.9);
-    const height = Math.max(width * 1.35, torsoHeight * 1.7);
-    const centerX = shoulderCx;
-    const centerY = shoulderCy + torsoHeight * 0.52;
-    const angle = Math.atan2(
-      rightShoulder.y - leftShoulder.y,
-      rightShoulder.x - leftShoulder.x
-    );
-
-    return {
-      centerX,
-      centerY,
-      width,
-      height,
-      angle,
-      scaleX: 1,
-      scaleY: 1,
-    };
-  };
-
-  const smoothOverlayTransform = (current, previous, alpha) => {
-    if (!current) return previous;
-    if (!previous) return current;
-    return {
-      centerX: alpha * current.centerX + (1 - alpha) * previous.centerX,
-      centerY: alpha * current.centerY + (1 - alpha) * previous.centerY,
-      width: alpha * current.width + (1 - alpha) * previous.width,
-      height: alpha * current.height + (1 - alpha) * previous.height,
-      angle: alpha * current.angle + (1 - alpha) * previous.angle,
-      scaleX: alpha * current.scaleX + (1 - alpha) * previous.scaleX,
-      scaleY: alpha * current.scaleY + (1 - alpha) * previous.scaleY,
-    };
-  };
-
-  const getFallbackOverlayTransform = (canvasWidth, canvasHeight) => {
-    const width = Math.max(180, canvasWidth * 0.48);
-    const height = width * 1.35;
-    return {
-      centerX: canvasWidth * 0.5,
-      centerY: canvasHeight * 0.56,
-      width,
-      height,
-      angle: 0,
-      scaleX: 1,
-      scaleY: 1,
-    };
-  };
-
-  const drawClothingOverlay = (ctx, image, transform) => {
-    if (!ctx || !image || !transform) return;
-
-    ctx.save();
-    ctx.translate(transform.centerX, transform.centerY);
-    ctx.rotate(transform.angle);
-    ctx.scale(transform.scaleX, transform.scaleY);
-    ctx.drawImage(
-      image,
-      -transform.width / 2,
-      -transform.height / 2,
-      transform.width,
-      transform.height
-    );
-    ctx.restore();
-  };
-
-  const processFrame = () => {
+  const processFrame = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
-    syncCanvasSizeToVideo(video, canvas);
+    if (
+      canvas.width !== video.videoWidth ||
+      canvas.height !== video.videoHeight
+    ) {
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+    }
 
     const ctx = canvas.getContext("2d");
     const tStart = performance.now();
 
-    // 1) Frame capture
+    // 1. Frame Capture Time
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const tFrameCapture = performance.now() - tStart;
 
-    // 2) Overlay compute + draw (GPU transform path)
-    const tOverlayStart = performance.now();
-    const selectedImageUrl = selectedDressRef.current?.imageUrl;
-    const dressImage = selectedImageUrl
-      ? clothingImageCacheRef.current.get(selectedImageUrl)
-      : null;
-    const overlayTransform =
-      overlayStateRef.current || getFallbackOverlayTransform(canvas.width, canvas.height);
-
-    if (!overlayFrozenRef.current && dressImage && overlayTransform) {
-      drawClothingOverlay(ctx, dressImage, overlayTransform);
+    // 2. Canvas Draw Time (Drafting last overlay)
+    const tDrawStart = performance.now();
+    if (lastOverlayRef.current) {
+      ctx.drawImage(lastOverlayRef.current, 0, 0, canvas.width, canvas.height);
     }
-    overlayComputeTimeRef.current = performance.now() - tOverlayStart;
+    const tCanvasDraw = performance.now() - tDrawStart;
 
-    // Optional hand skeleton visualization
-    if (isLiveTryOnRef.current && smoothedLandmarksRef.current?.length > 0) {
+
+
+    // Draw Tracking Visualization (Hand Skeleton)
+    if (isLiveTryOnRef.current && lastLandmarksRef.current?.length > 0) {
       try {
-        drawLandmarks(ctx, smoothedLandmarksRef.current);
+        drawLandmarks(ctx, lastLandmarksRef.current);
       } catch (err) {
         console.error("Error drawing landmarks:", err);
       }
     }
 
-    const tCanvasDraw = performance.now() - tOverlayStart;
-    const tTotal = performance.now() - tStart;
+    const currentDress = selectedDressRef.current;
 
-    frameCaptureTimeRef.current = tFrameCapture;
-    canvasDrawTimeRef.current = tCanvasDraw;
-    totalFrameTimeRef.current = tTotal;
-    frameCounterRef.current += 1;
+    // Don't call backend when overlay is frozen (during countdown) or server not ready
+    if (
+      !overlayFrozenRef.current &&
+      !isProcessingRef.current &&
+      currentDress?.imageUrl &&
+      isServerReadyRef.current
+    ) {
+      isProcessingRef.current = true;
+      const tComputeStart = performance.now();
+      try {
+        const frameData = canvas.toDataURL("image/jpeg").split(",")[1];
+        const dressIdAtRequestTime = currentDress.id;
+
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_URL}/tryon`,
+          {
+            frame: frameData,
+            shirtUrl: currentDress.imageUrl,
+          }
+        );
+
+        overlayComputeTimeRef.current = performance.now() - tComputeStart;
+
+        if (response.data.result) {
+          const img = new Image();
+          img.onload = () => {
+            // Ignore outdated responses
+            if (
+              !selectedDressRef.current ||
+              selectedDressRef.current.id !== dressIdAtRequestTime
+            ) {
+              return;
+            }
+            lastOverlayRef.current = img;
+          };
+          img.src = `data:image/png;base64,${response.data.result}`;
+        }
+      } catch (err) {
+        console.error("Backend error:", err);
+      } finally {
+        isProcessingRef.current = false;
+      }
+    }
+    const tTotal = performance.now() - tStart;
+    frameCounterRef.current++;
 
     if (frameCounterRef.current % 30 === 0) {
       console.log(`
 Frame Diagnostics:
-frame_capture_time = ${frameCaptureTimeRef.current.toFixed(2)} ms
+frame_capture_time = ${tFrameCapture.toFixed(2)} ms
 detection_time = ${detectionTimeRef.current.toFixed(2)} ms
 overlay_compute_time = ${overlayComputeTimeRef.current.toFixed(2)} ms
-canvas_draw_time = ${canvasDrawTimeRef.current.toFixed(2)} ms
-total_frame_time = ${totalFrameTimeRef.current.toFixed(2)} ms
-skipped_detections = ${skippedDetectionRef.current}
+canvas_draw_time = ${tCanvasDraw.toFixed(2)} ms
+total_frame_time = ${tTotal.toFixed(2)} ms
       `);
-      skippedDetectionRef.current = 0;
     }
 
     if (isLiveTryOnRef.current) {
@@ -544,81 +369,40 @@ skipped_detections = ${skippedDetectionRef.current}
   // ---------------- GESTURE DETECTION LOOP ----------------
 
   const startGestureDetection = () => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-    }
+    const video = videoRef.current;
+    if (!video || !detectorRef.current) return;
 
-    detectionIntervalRef.current = setInterval(() => {
+    const detectLoop = async (t) => {
       if (!isLiveTryOnRef.current) return;
 
-      const video = videoRef.current;
-      const detector = detectorRef.current;
-      const poseDetector = poseDetectorRef.current;
-      if (!video || !detector) return;
+      const tDetectStart = performance.now();
+      const results = await detectorRef.current.detectForVideo(
+        video,
+        t || performance.now()
+      );
+      detectionTimeRef.current = performance.now() - tDetectStart;
 
-      if (isDetectingRef.current) {
-        skippedDetectionRef.current += 1;
-        return;
+      const landmarks = results?.landmarks;
+      lastLandmarksRef.current = landmarks || []; // Update for visualization
+      const gesture = detectGesture(landmarks);
+
+      if (gesture) {
+        missedFramesRef.current = 0;
+        setShowDistanceWarning(false);
+        handleGesture(gesture);
+      } else {
+        missedFramesRef.current += 1;
+        if (missedFramesRef.current > 90) {
+          setShowDistanceWarning(true);
+        }
       }
 
-      isDetectingRef.current = true;
-      const detectTimestamp = performance.now();
+      requestAnimationFrame(detectLoop);
+    };
 
-      (async () => {
-        const tDetectStart = performance.now();
-        try {
-          const [results, poseResults] = await Promise.all([
-            detector.detectForVideo(video, detectTimestamp),
-            poseDetector
-              ? poseDetector.detectForVideo(video, detectTimestamp)
-              : Promise.resolve(null),
-          ]);
-          detectionTimeRef.current = performance.now() - tDetectStart;
-
-          const rawLandmarks = results?.landmarks || [];
-          lastLandmarksRef.current = rawLandmarks;
-
-          const smoothedHands = smoothLandmarks(
-            rawLandmarks,
-            smoothedLandmarksRef.current,
-            SMOOTHING_ALPHA
-          );
-          smoothedLandmarksRef.current = smoothedHands;
-
-          const canvas = canvasRef.current;
-          const poseLandmarks = poseResults?.landmarks || [];
-          if (canvas && poseLandmarks.length > 0) {
-            const nextOverlay = computeOverlayTransform(
-              poseLandmarks,
-              canvas.width,
-              canvas.height
-            );
-            overlayStateRef.current = smoothOverlayTransform(
-              nextOverlay,
-              overlayStateRef.current,
-              SMOOTHING_ALPHA
-            );
-          }
-
-          const gesture = detectGesture(smoothedHands);
-          if (gesture) {
-            missedFramesRef.current = 0;
-            setShowDistanceWarning(false);
-            handleGesture(gesture);
-          } else {
-            missedFramesRef.current += 1;
-            if (missedFramesRef.current > 90) {
-              setShowDistanceWarning(true);
-            }
-          }
-        } catch (err) {
-          console.error("Detection error:", err);
-        } finally {
-          isDetectingRef.current = false;
-        }
-      })();
-    }, DETECTION_INTERVAL_MS);
+    requestAnimationFrame(detectLoop);
   };
+
   // ---------------- LIVE TRY-ON TOGGLE ----------------
 
   const startLiveTryOn = () => {
@@ -648,10 +432,6 @@ skipped_detections = ${skippedDetectionRef.current}
     setIsLiveTryOn(true);
     isLiveTryOnRef.current = true;
     isServerReadyRef.current = true;
-    isDetectingRef.current = false;
-    skippedDetectionRef.current = 0;
-    smoothedLandmarksRef.current = [];
-    overlayStateRef.current = null;
     setGestureMessage("");
     setCountdown(null);
     overlayFrozenRef.current = false;
@@ -661,11 +441,6 @@ skipped_detections = ${skippedDetectionRef.current}
 
     setShowPalmHint(true);
     setTimeout(() => setShowPalmHint(false), 4000);
-
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-    }
 
     animationRef.current = requestAnimationFrame(processFrame);
     startGestureDetection();
@@ -680,25 +455,18 @@ skipped_detections = ${skippedDetectionRef.current}
     setIsLiveTryOn(false);
     isLiveTryOnRef.current = false;
     isServerReadyRef.current = false;
-    isDetectingRef.current = false;
     setGestureMessage("");
     setCountdown(null);
     overlayFrozenRef.current = false;
     setShowGestureGuide(false);
     setShowDistanceWarning(false);
-
-    if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-      detectionIntervalRef.current = null;
-    }
   };
 
   const handleReset = () => {
     setSelectedDress(null);
     stopLiveTryOn();
     isServerReadyRef.current = false;
-    overlayStateRef.current = null;
+    lastOverlayRef.current = null;
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -1288,26 +1056,3 @@ skipped_detections = ${skippedDetectionRef.current}
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

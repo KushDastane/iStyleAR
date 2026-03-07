@@ -1,3 +1,4 @@
+import time
 import os
 import traceback
 import base64
@@ -92,6 +93,7 @@ def home():
 
 @app.route('/tryon', methods=['POST', 'OPTIONS'])
 def tryon():
+    t_start = time.time()
     # Preflight
     if request.method == 'OPTIONS':
         return jsonify({'status': 'ok'}), 200
@@ -164,16 +166,20 @@ def tryon():
                 return jsonify({'error': 'Frame too large'}), 413
 
             try:
+                t_decode_start = time.time()
                 img_bytes = base64.b64decode(frame_data)
+                t_decode = (time.time() - t_decode_start) * 1000
             except Exception:
                 print("Error decoding base64 frame")
                 return jsonify({'error': 'Invalid image data'}), 400
 
             try:
+                t_preprocess_start = time.time()
                 pil_img = Image.open(BytesIO(img_bytes)).convert("RGB")
                 pil_img = downsize_pil_image(pil_img, max_w=512)  # downsize early
                 img_cv = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
                 h, w, _ = img_cv.shape
+                t_preprocess = (time.time() - t_preprocess_start) * 1000
             except Exception as e:
                 print("Error decoding/resizing frame:", e)
                 traceback.print_exc()
@@ -185,7 +191,9 @@ def tryon():
 
         # Pose detection (fast/light)
         try:
+            t_pose_start = time.time()
             results = pose.process(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB))
+            t_pose = (time.time() - t_pose_start) * 1000
             if not results.pose_landmarks:
                 print("No pose landmarks detected")
                 return jsonify({'result': None}), 200
@@ -201,6 +209,8 @@ def tryon():
                           int(lm[mp.solutions.pose.PoseLandmark.RIGHT_SHOULDER].y * h))
         left_hip = (int(lm[mp.solutions.pose.PoseLandmark.LEFT_HIP].x * w),
                     int(lm[mp.solutions.pose.PoseLandmark.LEFT_HIP].y * h))
+        right_hip = (int(lm[mp.solutions.pose.PoseLandmark.RIGHT_HIP].x * w),
+                     int(lm[mp.solutions.pose.PoseLandmark.RIGHT_HIP].y * h))
 
         # Smoothing
         try:
@@ -221,7 +231,13 @@ def tryon():
             previous_points = smoothed
             return smoothed
 
-        left_shoulder, right_shoulder, left_hip = smooth_points([left_shoulder, right_shoulder, left_hip])
+        left_shoulder, right_shoulder, left_hip, right_hip = smooth_points([left_shoulder, right_shoulder, left_hip, right_hip])
+
+        # Step 1 & 4 - Compute & Clamp Shoulder Angle
+        dx = right_shoulder[0] - left_shoulder[0]
+        dy = right_shoulder[1] - left_shoulder[1]
+        angle = np.degrees(np.arctan2(dy, dx))
+        angle = max(min(angle, 30), -30)
 
         # Calculate shirt overlay box
         shirt_width = int(abs(right_shoulder[0] - left_shoulder[0]) * 1.5)
@@ -250,20 +266,53 @@ def tryon():
 
         # Resize & compose overlay
         try:
+            t_overlay_start = time.time()
             w_box = max(1, x2 - x1)
             h_box = max(1, y2 - y1)
             shirt_resized = cv2.resize(shirt_arr, (w_box, h_box))
-            overlay = np.zeros((h, w, 4), dtype=np.uint8)
 
-            if shirt_resized.shape[2] == 4:
-                alpha = shirt_resized[:, :, 3]
-                for c in range(3):
-                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
-                overlay[y1:y2, x1:x2, 3] = alpha
-            else:
-                for c in range(3):
-                    overlay[y1:y2, x1:x2, c] = shirt_resized[:, :, c]
-                overlay[y1:y2, x1:x2, 3] = 255
+            # Step 2 & 3 - Rotate Clothing Image
+            center = (w_box // 2, h_box // 2)
+            rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+            shirt_rotated = cv2.warpAffine(
+                shirt_resized,
+                rotation_matrix,
+                (w_box, h_box),
+                flags=cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=(0, 0, 0, 0)
+            )
+
+            # Ensure 4 channels (BGRA) for transparency support during warp
+            if shirt_rotated.shape[2] == 3:
+                shirt_rotated = cv2.cvtColor(shirt_rotated, cv2.COLOR_BGR2BGRA)
+
+            # Perspective Warp Logic
+            src_pts = np.float32([
+                [0, 0],
+                [w_box, 0],
+                [w_box, h_box],
+                [0, h_box]
+            ])
+            dst_pts = np.float32([
+                left_shoulder,
+                right_shoulder,
+                right_hip,
+                left_hip
+            ])
+
+            M_warp = cv2.getPerspectiveTransform(src_pts, dst_pts)
+            shirt_warped = cv2.warpPerspective(
+                shirt_rotated,
+                M_warp,
+                (w, h),
+                flags=cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_CONSTANT,
+                borderValue=(0, 0, 0, 0)
+            )
+
+            overlay = shirt_warped
+            t_overlay = (time.time() - t_overlay_start) * 1000
         except Exception as e:
             print("Error processing shirt overlay:", e)
             traceback.print_exc()
@@ -271,8 +320,21 @@ def tryon():
 
         # Encode result as base64 PNG
         try:
+            t_encode_start = time.time()
             _, buffer = cv2.imencode('.png', overlay)
             result_b64 = base64.b64encode(buffer).decode('utf-8')
+            t_encode = (time.time() - t_encode_start) * 1000
+            
+            t_total = (time.time() - t_start) * 1000
+            
+            print(f"\nFrame Processing Diagnostics:")
+            print(f"decode_time = {t_decode:.2f} ms")
+            print(f"preprocess_time = {t_preprocess:.2f} ms")
+            print(f"pose_detection_time = {t_pose:.2f} ms")
+            print(f"overlay_compute_time = {t_overlay:.2f} ms")
+            print(f"encoding_time = {t_encode:.2f} ms")
+            print(f"total_request_time = {t_total:.2f} ms\n")
+
             return jsonify({'result': result_b64}), 200
         except Exception as e:
             print("Error encoding result:", e)
