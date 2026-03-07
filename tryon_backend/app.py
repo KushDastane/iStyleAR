@@ -239,11 +239,11 @@ def tryon():
         angle = np.degrees(np.arctan2(dy, dx))
         angle = max(min(angle, 30), -30)
 
-        # Calculate shirt overlay box
-        shirt_width = int(abs(right_shoulder[0] - left_shoulder[0]) * 1.5)
-        shirt_height = int(abs(left_hip[1] - left_shoulder[1]) * 1.6)
+        # Calculate shirt overlay box with refined scaling
+        shirt_width = int(abs(right_shoulder[0] - left_shoulder[0]) * 1.45) # Reduced from 1.5
+        shirt_height = int(abs(left_hip[1] - left_shoulder[1]) * 1.45) # Reduced from 1.6
         x_center = int((left_shoulder[0] + right_shoulder[0]) / 2)
-        y_top = int(left_shoulder[1] - shirt_height * 0.15)
+        y_top = int(left_shoulder[1] - shirt_height * 0.12) # Adjusted top offset
         x1 = max(0, x_center - shirt_width // 2)
         y1 = max(0, y_top)
         x2 = min(w, x1 + shirt_width)
@@ -287,7 +287,10 @@ def tryon():
             if shirt_rotated.shape[2] == 3:
                 shirt_rotated = cv2.cvtColor(shirt_rotated, cv2.COLOR_BGR2BGRA)
 
-            # Perspective Warp Logic
+            # Perspective Warp Logic: Calculate a lift offset to make the collar sit correctly
+            torso_height = abs(left_hip[1] - left_shoulder[1])
+            lift_offset = torso_height * 0.18  # Lift the garment up by 18% of torso height
+
             src_pts = np.float32([
                 [0, 0],
                 [w_box, 0],
@@ -295,8 +298,8 @@ def tryon():
                 [0, h_box]
             ])
             dst_pts = np.float32([
-                left_shoulder,
-                right_shoulder,
+                [left_shoulder[0], left_shoulder[1] - lift_offset],
+                [right_shoulder[0], right_shoulder[1] - lift_offset],
                 right_hip,
                 left_hip
             ])

@@ -73,6 +73,7 @@ export default function UserTryOn() {
   const animationRef = useRef(null); // render RAF
   const detectionIntervalRef = useRef(null); // detection interval
   const clothingImageCacheRef = useRef(new Map());
+  const clothingImageMetaRef = useRef(new Map());
   const overlayStateRef = useRef(null);
   const overlayFrozenRef = useRef(false);
   const isLiveTryOnRef = useRef(false);
@@ -86,6 +87,8 @@ export default function UserTryOn() {
   const missedFramesRef = useRef(0);
   const lastLandmarksRef = useRef([]);
   const smoothedLandmarksRef = useRef([]);
+  const poseLandmarksRef = useRef([]);
+  const smoothedPoseLandmarksRef = useRef([]);
   const isDetectingRef = useRef(false);
   const skippedDetectionRef = useRef(0);
 
@@ -150,7 +153,10 @@ export default function UserTryOn() {
   // ---------------- LOAD HAND DETECTOR ----------------
 
   useEffect(() => {
-    if ((detectorRef.current && poseDetectorRef.current) || (handDetectorSingleton && poseDetectorSingleton)) {
+    if (
+      (detectorRef.current && poseDetectorRef.current) ||
+      (handDetectorSingleton && poseDetectorSingleton)
+    ) {
       detectorRef.current = handDetectorSingleton;
       poseDetectorRef.current = poseDetectorSingleton;
       return;
@@ -181,11 +187,12 @@ export default function UserTryOn() {
           handDetectorPromise,
           poseDetectorPromise,
         ]);
+
         handDetectorSingleton = handDetector;
         poseDetectorSingleton = poseDetector;
         detectorRef.current = handDetector;
         poseDetectorRef.current = poseDetector;
-        console.log("Hand and pose detectors loaded");
+        console.log("Hand and pose models loaded");
       } catch (err) {
         handDetectorPromise = null;
         poseDetectorPromise = null;
@@ -211,7 +218,76 @@ export default function UserTryOn() {
       isDetectingRef.current = false;
     };
   }, [stream]);
+  const computeImageContentMetrics = (img) => {
+    try {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) return null;
 
+      const maxDim = 512;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      const sw = Math.max(1, Math.round(w * scale));
+      const sh = Math.max(1, Math.round(h * scale));
+
+      const off = document.createElement("canvas");
+      off.width = sw;
+      off.height = sh;
+      const octx = off.getContext("2d", { willReadFrequently: true });
+      octx.clearRect(0, 0, sw, sh);
+      octx.drawImage(img, 0, 0, sw, sh);
+
+      const data = octx.getImageData(0, 0, sw, sh).data;
+      let minX = sw;
+      let minY = sh;
+      let maxX = -1;
+      let maxY = -1;
+
+      for (let y = 0; y < sh; y += 1) {
+        for (let x = 0; x < sw; x += 1) {
+          const a = data[(y * sw + x) * 4 + 3];
+          if (a > 8) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return null;
+      }
+
+      const cropW = Math.max(1, maxX - minX + 1);
+      const cropH = Math.max(1, maxY - minY + 1);
+
+      // Estimate neckline row inside the cropped alpha box.
+      let neckRow = Math.round(cropH * 0.12);
+      const COVERAGE_THRESHOLD = 0.22;
+      for (let y = minY; y <= maxY; y += 1) {
+        let covered = 0;
+        for (let x = minX; x <= maxX; x += 1) {
+          const a = data[(y * sw + x) * 4 + 3];
+          if (a > 16) covered += 1;
+        }
+        if (covered / cropW >= COVERAGE_THRESHOLD) {
+          neckRow = y - minY;
+          break;
+        }
+      }
+
+      return {
+        sxNorm: minX / sw,
+        syNorm: minY / sh,
+        swNorm: cropW / sw,
+        shNorm: cropH / sh,
+        aspect: cropH / cropW,
+        neckNorm: neckRow / cropH,
+      };
+    } catch {
+      return null;
+    }
+  };
   const preloadDressImage = (imageUrl) => {
     if (!imageUrl) return Promise.resolve(null);
 
@@ -226,8 +302,10 @@ export default function UserTryOn() {
 
     return new Promise((resolve, reject) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         clothingImageCacheRef.current.set(imageUrl, img);
+        clothingImageMetaRef.current.set(imageUrl, computeImageContentMetrics(img));
         resolve(img);
       };
       img.onerror = reject;
@@ -251,7 +329,7 @@ export default function UserTryOn() {
     if (!wardrobeItems?.length) return;
     wardrobeItems.forEach((item) => {
       if (item?.imageUrl) {
-        preloadDressImage(item.imageUrl).catch(() => {});
+        preloadDressImage(item.imageUrl).catch(() => { });
       }
     });
   }, [wardrobeItems]);
@@ -350,10 +428,21 @@ export default function UserTryOn() {
     );
     const torsoHeight = Math.hypot(hipCx - shoulderCx, hipCy - shoulderCy);
 
-    const width = Math.max(170, shoulderSpan * 1.9);
-    const height = Math.max(width * 1.35, torsoHeight * 1.7);
+    // Category-aware scaling logic
+    const itemName = selectedDressRef.current?.name?.toLowerCase() || "";
+    const isAccessory = itemName.includes("muffler") || itemName.includes("scarf") || itemName.includes("tie");
+
+    const widthBaseMult = isAccessory ? 0.75 : 1.45; // Reduced from 1.9 for less "bulk"
+    const heightBaseMult = isAccessory ? 1.0 : 1.45; // Reduced for accessories
+
+    const width = Math.max(isAccessory ? 80 : 160, shoulderSpan * widthBaseMult);
+    const height = Math.max(width * 1.35, torsoHeight * heightBaseMult);
     const centerX = shoulderCx;
-    const centerY = shoulderCy + torsoHeight * 0.52;
+
+    // Lift neckline so collar aligns closer to neck/shoulder base.
+    // Use slightly more offset than 0.02 but less than 0.40
+    const collarLift = torsoHeight * 0.14;
+    const centerY = shoulderCy - collarLift + height * 0.5;
 
     const rawAngle = Math.atan2(
       rightShoulder.y - leftShoulder.y,
@@ -458,7 +547,126 @@ export default function UserTryOn() {
     };
   };
 
-  const drawClothingOverlay = (ctx, image, transform) => {
+  const redrawHandOcclusion = (
+    ctx,
+    video,
+    poseLandmarks,
+    handLandmarks,
+    canvasWidth,
+    canvasHeight
+  ) => {
+    const pose = poseLandmarks?.[0];
+    if (!pose || !video || !handLandmarks?.length) return;
+
+    const leftShoulder = pose[11];
+    const rightShoulder = pose[12];
+    const leftHip = pose[23];
+    const rightHip = pose[24];
+    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return;
+
+    const torsoLeft = Math.min(leftShoulder.x, rightShoulder.x, leftHip.x, rightHip.x) - 0.1;
+    const torsoRight = Math.max(leftShoulder.x, rightShoulder.x, leftHip.x, rightHip.x) + 0.1;
+    const torsoTop = Math.min(leftShoulder.y, rightShoulder.y) - 0.08;
+    const torsoBottom = Math.max(leftHip.y, rightHip.y) + 0.08;
+    const torsoZ =
+      ((leftShoulder.z ?? 0) + (rightShoulder.z ?? 0) + (leftHip.z ?? 0) + (rightHip.z ?? 0)) /
+      4;
+
+    const poseLeftWrist = pose[15];
+    const poseRightWrist = pose[16];
+
+    const drawVideoClipStroke = (buildPath, strokeWidth, alpha = 1) => {
+      ctx.save();
+      ctx.beginPath();
+      buildPath();
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0)";
+      ctx.stroke();
+      ctx.clip();
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(video, 0, 0, canvasWidth, canvasHeight);
+      ctx.restore();
+    };
+
+    handLandmarks.forEach((hand) => {
+      if (!hand || hand.length < 21) return;
+
+      const wrist = hand[0];
+      const middleMcp = hand[9] || wrist;
+      const indexMcp = hand[5] || wrist;
+      const pinkyMcp = hand[17] || wrist;
+      if (!wrist || !middleMcp || !indexMcp || !pinkyMcp) return;
+
+      const dLeft = poseLeftWrist
+        ? Math.hypot(wrist.x - poseLeftWrist.x, wrist.y - poseLeftWrist.y)
+        : Number.POSITIVE_INFINITY;
+      const dRight = poseRightWrist
+        ? Math.hypot(wrist.x - poseRightWrist.x, wrist.y - poseRightWrist.y)
+        : Number.POSITIVE_INFINITY;
+      const nearestPoseWrist = dLeft <= dRight ? poseLeftWrist : poseRightWrist;
+
+      const handCx = hand.reduce((sum, p) => sum + p.x, 0) / hand.length;
+      const handCy = hand.reduce((sum, p) => sum + p.y, 0) / hand.length;
+      const handInTorso =
+        handCx > torsoLeft &&
+        handCx < torsoRight &&
+        handCy > torsoTop &&
+        handCy < torsoBottom;
+
+      const handFrontByPose = (nearestPoseWrist?.z ?? torsoZ) < torsoZ - 0.012;
+      if (!handInTorso && !handFrontByPose) return;
+
+      const palmPx = handCx * canvasWidth;
+      const palmPy = handCy * canvasHeight;
+      const palmSpan = Math.hypot(
+        (indexMcp.x - pinkyMcp.x) * canvasWidth,
+        (indexMcp.y - pinkyMcp.y) * canvasHeight
+      );
+      const palmRadius = Math.max(16, Math.min(40, palmSpan * 0.9));
+
+      // Palm core + feather
+      drawVideoClipStroke(() => ctx.arc(palmPx, palmPy, palmRadius, 0, Math.PI * 2), 1, 1);
+      drawVideoClipStroke(
+        () => ctx.arc(palmPx, palmPy, palmRadius + 8, 0, Math.PI * 2),
+        1,
+        0.35
+      );
+
+      // Fingers (base -> tip) with rounded soft coverage
+      const fingerChains = [
+        [1, 4],
+        [5, 8],
+        [9, 12],
+        [13, 16],
+        [17, 20],
+      ];
+
+      fingerChains.forEach(([baseIdx, tipIdx]) => {
+        const base = hand[baseIdx];
+        const tip = hand[tipIdx];
+        if (!base || !tip) return;
+
+        const x1 = base.x * canvasWidth;
+        const y1 = base.y * canvasHeight;
+        const x2 = tip.x * canvasWidth;
+        const y2 = tip.y * canvasHeight;
+        const fingerWidth = Math.max(8, palmRadius * 0.5);
+
+        drawVideoClipStroke(() => {
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+        }, fingerWidth, 0.95);
+
+        drawVideoClipStroke(() => {
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+        }, fingerWidth + 6, 0.28);
+      });
+    });
+  };
+  const drawClothingOverlay = (ctx, image, transform, contentMetrics) => {
     if (!ctx || !image || !transform) return;
 
     ctx.save();
@@ -469,12 +677,55 @@ export default function UserTryOn() {
     ctx.rotate(transform.angle);
     ctx.transform(1, transform.shearY ?? 0, transform.shearX ?? 0, 1, 0, 0);
     ctx.scale(transform.scaleX, transform.scaleY);
+    const srcX = Math.round((contentMetrics?.sxNorm ?? 0) * image.naturalWidth);
+    const srcY = Math.round((contentMetrics?.syNorm ?? 0) * image.naturalHeight);
+    const srcW = Math.max(
+      1,
+      Math.round((contentMetrics?.swNorm ?? 1) * image.naturalWidth)
+    );
+    const srcH = Math.max(
+      1,
+      Math.round((contentMetrics?.shNorm ?? 1) * image.naturalHeight)
+    );
+    const contentAspect = contentMetrics?.aspect || transform.height / Math.max(1, transform.width);
+    const fitWidthFromHeight = transform.height / Math.max(0.2, contentAspect);
+    const drawWidth = transform.width * 0.74 + fitWidthFromHeight * 0.26;
+    const drawHeight = transform.height;
+    const neckNorm = Math.max(0, Math.min(0.45, contentMetrics?.neckNorm ?? 0.12));
+    // Anchor PNG neckline near shoulder line for stable alignment.
+    const targetNeckLocalY = -drawHeight * 0.47;
+    const sourceNeckLocalY = -drawHeight / 2 + neckNorm * drawHeight;
+    const drawYOffset = targetNeckLocalY - sourceNeckLocalY;
+    // Feathered under-pass to avoid harsh sticker edges.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.filter = "blur(1.2px)";
     ctx.drawImage(
       image,
-      -transform.width / 2,
-      -transform.height / 2,
-      transform.width,
-      transform.height
+      srcX,
+      srcY,
+      srcW,
+      srcH,
+      -drawWidth / 2 - 2,
+      -drawHeight / 2 + drawYOffset - 2,
+      drawWidth + 4,
+      drawHeight + 4
+    );
+    ctx.restore();
+
+    ctx.globalAlpha = 0.95;
+    ctx.drawImage(
+      image,
+      srcX,
+      srcY,
+      srcW,
+      srcH,
+      -drawWidth / 2,
+      -drawHeight / 2 + drawYOffset,
+      drawWidth,
+      drawHeight
     );
     ctx.restore();
   };
@@ -500,11 +751,22 @@ export default function UserTryOn() {
     const dressImage = selectedImageUrl
       ? clothingImageCacheRef.current.get(selectedImageUrl)
       : null;
+    const dressMeta = selectedImageUrl
+      ? clothingImageMetaRef.current.get(selectedImageUrl)
+      : null;
     const overlayTransform =
       overlayStateRef.current || getFallbackOverlayTransform(canvas.width, canvas.height);
 
     if (!overlayFrozenRef.current && dressImage && overlayTransform) {
-      drawClothingOverlay(ctx, dressImage, overlayTransform);
+      drawClothingOverlay(ctx, dressImage, overlayTransform, dressMeta);
+      redrawHandOcclusion(
+        ctx,
+        video,
+        smoothedPoseLandmarksRef.current,
+        smoothedLandmarksRef.current,
+        canvas.width,
+        canvas.height
+      );
     }
     overlayComputeTimeRef.current = performance.now() - tOverlayStart;
 
@@ -560,8 +822,13 @@ skipped_detections = ${skippedDetectionRef.current}
 
         const canvas = canvasRef.current;
         if (canvas) {
-          const url = canvas.toDataURL("image/png");
-          setTryOnImage(url);
+          try {
+            const url = canvas.toDataURL("image/png");
+            setTryOnImage(url);
+          } catch (captureErr) {
+            console.error("Capture failed:", captureErr);
+            toast.error("Capture failed. Image source blocks export.");
+          }
         }
 
         stopLiveTryOn();
@@ -641,6 +908,7 @@ skipped_detections = ${skippedDetectionRef.current}
               ? poseDetector.detectForVideo(video, detectTimestamp)
               : Promise.resolve(null),
           ]);
+
           detectionTimeRef.current = performance.now() - tDetectStart;
 
           const rawLandmarks = results?.landmarks || [];
@@ -655,9 +923,17 @@ skipped_detections = ${skippedDetectionRef.current}
 
           const canvas = canvasRef.current;
           const poseLandmarks = poseResults?.landmarks || [];
-          if (canvas && poseLandmarks.length > 0) {
+          poseLandmarksRef.current = poseLandmarks;
+          const smoothedPose = smoothLandmarks(
+            poseLandmarks,
+            smoothedPoseLandmarksRef.current,
+            SMOOTHING_ALPHA
+          );
+          smoothedPoseLandmarksRef.current = smoothedPose;
+
+          if (canvas && smoothedPose.length > 0) {
             const nextOverlay = computeOverlayTransform(
-              poseLandmarks,
+              smoothedPose,
               canvas.width,
               canvas.height
             );
@@ -667,6 +943,9 @@ skipped_detections = ${skippedDetectionRef.current}
               SMOOTHING_ALPHA
             );
           }
+
+
+
 
           const gesture = detectGesture(smoothedHands);
           if (gesture) {
@@ -685,6 +964,7 @@ skipped_detections = ${skippedDetectionRef.current}
           isDetectingRef.current = false;
         }
       })();
+
     }, DETECTION_INTERVAL_MS);
   };
   // ---------------- LIVE TRY-ON TOGGLE ----------------
@@ -719,6 +999,8 @@ skipped_detections = ${skippedDetectionRef.current}
     isDetectingRef.current = false;
     skippedDetectionRef.current = 0;
     smoothedLandmarksRef.current = [];
+    poseLandmarksRef.current = [];
+    smoothedPoseLandmarksRef.current = [];
     overlayStateRef.current = null;
     setGestureMessage("");
     setCountdown(null);
@@ -767,6 +1049,8 @@ skipped_detections = ${skippedDetectionRef.current}
     stopLiveTryOn();
     isServerReadyRef.current = false;
     overlayStateRef.current = null;
+    poseLandmarksRef.current = [];
+    smoothedPoseLandmarksRef.current = [];
     if (stream) {
       stream.getTracks().forEach((t) => t.stop());
       setStream(null);
@@ -778,9 +1062,14 @@ skipped_detections = ${skippedDetectionRef.current}
   const handleCaptureTryOn = () => {
     if (!selectedDress) return toast.error("Select a dress first!");
     if (canvasRef.current && isLiveTryOn) {
-      const url = canvasRef.current.toDataURL("image/png");
-      setTryOnImage(url);
-      stopLiveTryOn();
+      try {
+        const url = canvasRef.current.toDataURL("image/png");
+        setTryOnImage(url);
+        stopLiveTryOn();
+      } catch (captureErr) {
+        console.error("Capture failed:", captureErr);
+        toast.error("Capture failed. Image source blocks export.");
+      }
     } else {
       setTryOnImage(selectedDress.imageUrl);
     }
