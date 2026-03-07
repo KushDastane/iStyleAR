@@ -432,8 +432,8 @@ export default function UserTryOn() {
     const itemName = selectedDressRef.current?.name?.toLowerCase() || "";
     const isAccessory = itemName.includes("muffler") || itemName.includes("scarf") || itemName.includes("tie");
 
-    const widthBaseMult = isAccessory ? 0.75 : 1.45; // Reduced from 1.9 for less "bulk"
-    const heightBaseMult = isAccessory ? 1.0 : 1.45; // Reduced for accessories
+    const widthBaseMult = isAccessory ? 0.75 : 1.75; // Reduced from 1.9 for less "bulk"
+    const heightBaseMult = isAccessory ? 1.0 : 1.75; // Reduced for accessories
 
     const width = Math.max(isAccessory ? 80 : 160, shoulderSpan * widthBaseMult);
     const height = Math.max(width * 1.35, torsoHeight * heightBaseMult);
@@ -757,7 +757,7 @@ export default function UserTryOn() {
     const overlayTransform =
       overlayStateRef.current || getFallbackOverlayTransform(canvas.width, canvas.height);
 
-    if (!overlayFrozenRef.current && dressImage && overlayTransform) {
+    if (dressImage && overlayTransform) {
       drawClothingOverlay(ctx, dressImage, overlayTransform, dressMeta);
       redrawHandOcclusion(
         ctx,
@@ -931,7 +931,7 @@ skipped_detections = ${skippedDetectionRef.current}
           );
           smoothedPoseLandmarksRef.current = smoothedPose;
 
-          if (canvas && smoothedPose.length > 0) {
+          if (canvas && smoothedPose.length > 0 && !overlayFrozenRef.current) {
             const nextOverlay = computeOverlayTransform(
               smoothedPose,
               canvas.width,
