@@ -344,12 +344,17 @@ export default function UserTryOn() {
       (rightShoulder.x - leftShoulder.x) * canvasWidth,
       (rightShoulder.y - leftShoulder.y) * canvasHeight
     );
+    const hipSpan = Math.hypot(
+      (rightHip.x - leftHip.x) * canvasWidth,
+      (rightHip.y - leftHip.y) * canvasHeight
+    );
     const torsoHeight = Math.hypot(hipCx - shoulderCx, hipCy - shoulderCy);
 
     const width = Math.max(170, shoulderSpan * 1.9);
     const height = Math.max(width * 1.35, torsoHeight * 1.7);
     const centerX = shoulderCx;
     const centerY = shoulderCy + torsoHeight * 0.52;
+
     const rawAngle = Math.atan2(
       rightShoulder.y - leftShoulder.y,
       rightShoulder.x - leftShoulder.x
@@ -363,17 +368,34 @@ export default function UserTryOn() {
 
     // Approximate yaw (side rotation) using shoulder depth difference + shoulder span.
     const shoulderZDelta = (rightShoulder.z ?? 0) - (leftShoulder.z ?? 0);
-    const shoulderXSpan = Math.max(
-      0.01,
-      Math.abs(rightShoulder.x - leftShoulder.x)
-    );
+    const shoulderXSpan = Math.max(0.01, Math.abs(rightShoulder.x - leftShoulder.x));
     const yawRatio = shoulderZDelta / shoulderXSpan;
     const yawStrength = Math.min(1, Math.abs(yawRatio) * 0.25);
     const yawDirection = Math.sign(yawRatio) || 1;
 
+    // Torso deformation signals (2.5D fit): lean + twist + taper.
+    const torsoLean = (shoulderCx - hipCx) / Math.max(1, torsoHeight);
+    const shoulderAngle = Math.atan2(
+      rightShoulder.y - leftShoulder.y,
+      rightShoulder.x - leftShoulder.x
+    );
+    const hipAngle = Math.atan2(rightHip.y - leftHip.y, rightHip.x - leftHip.x);
+    const torsoTwist = Math.atan2(
+      Math.sin(shoulderAngle - hipAngle),
+      Math.cos(shoulderAngle - hipAngle)
+    );
+    const taper = (shoulderSpan - hipSpan) / Math.max(1, hipSpan);
+
     // 2.5D effect: compress width on side turn and shift cloth slightly.
-    const scaleX = Math.max(0.65, 1 - yawStrength * 0.45);
+    const scaleX = Math.max(0.62, 1 - yawStrength * 0.45);
+    const scaleY = Math.max(0.9, Math.min(1.12, 1 + taper * 0.08));
     const depthOffsetX = yawDirection * width * yawStrength * 0.08;
+
+    // Affine torso skew to avoid rigid "sticker" look.
+    const shearX = Math.max(-0.22, Math.min(0.22, torsoLean * 0.9 + torsoTwist * 0.45));
+    const shoulderDrop = rightShoulder.y - leftShoulder.y;
+    const hipDrop = rightHip.y - leftHip.y;
+    const shearY = Math.max(-0.1, Math.min(0.1, (shoulderDrop - hipDrop) * 0.55));
 
     return {
       centerX,
@@ -382,7 +404,9 @@ export default function UserTryOn() {
       height,
       angle,
       scaleX,
-      scaleY: 1,
+      scaleY,
+      shearX,
+      shearY,
       depthOffsetX,
     };
   };
@@ -412,6 +436,8 @@ export default function UserTryOn() {
       depthOffsetX:
         alpha * (current.depthOffsetX ?? 0) +
         (1 - alpha) * (previous.depthOffsetX ?? 0),
+      shearX: alpha * (current.shearX ?? 0) + (1 - alpha) * (previous.shearX ?? 0),
+      shearY: alpha * (current.shearY ?? 0) + (1 - alpha) * (previous.shearY ?? 0),
     };
   };
 
@@ -427,6 +453,8 @@ export default function UserTryOn() {
       scaleX: 1,
       scaleY: 1,
       depthOffsetX: 0,
+      shearX: 0,
+      shearY: 0,
     };
   };
 
@@ -439,6 +467,7 @@ export default function UserTryOn() {
       transform.centerY
     );
     ctx.rotate(transform.angle);
+    ctx.transform(1, transform.shearY ?? 0, transform.shearX ?? 0, 1, 0, 0);
     ctx.scale(transform.scaleX, transform.scaleY);
     ctx.drawImage(
       image,
@@ -1327,6 +1356,11 @@ skipped_detections = ${skippedDetectionRef.current}
     </div>
   );
 }
+
+
+
+
+
 
 
 
