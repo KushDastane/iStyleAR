@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 import {
   FaTshirt,
   FaCamera,
@@ -10,6 +11,8 @@ import {
   FaRedo,
 } from "react-icons/fa";
 import ARWakeUpModal from "../../Components/ARWakeUpModal";
+import AROverlay3D from "../../Components/AROverlay3D";
+import { latestPoseLandmarksRef } from "../../utils/poseLandmarksStore";
 
 export default function TryFreePage() {
   const [selectedDress, setSelectedDress] = useState(null);
@@ -23,9 +26,17 @@ export default function TryFreePage() {
   const processingRef = useRef(false);
   const isLiveTryOnRef = useRef(false);
   const lastOverlayRef = useRef(null);
+  const poseLandmarkerRef = useRef(null);
+  const poseLandmarksRef = useRef([]);
+  const poseDetectionTimeoutRef = useRef(null);
+  const lastPoseDetectionTsRef = useRef(0);
+  const lastPoseVideoTimeRef = useRef(-1);
+  const isPoseDetectingRef = useRef(false);
+  const POSE_DETECTION_INTERVAL_MS = 80;
   const BACKEND = import.meta.env.VITE_API_URL || "";
   const [showWakeModal, setShowWakeModal] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [use3D, setUse3D] = useState(true); // Default to 3D for experiments
 
   // computed health url used by modal
   const healthUrl = BACKEND
@@ -65,8 +76,15 @@ export default function TryFreePage() {
     setIsLiveTryOn(false);
     isLiveTryOnRef.current = false;
     lastOverlayRef.current = null;
+    poseLandmarksRef.current = [];
+    latestPoseLandmarksRef.current = [];
+    lastPoseVideoTimeRef.current = -1;
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
+    }
+    if (poseDetectionTimeoutRef.current) {
+      clearTimeout(poseDetectionTimeoutRef.current);
+      poseDetectionTimeoutRef.current = null;
     }
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
@@ -79,11 +97,115 @@ export default function TryFreePage() {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }
+      if (poseDetectionTimeoutRef.current) {
+        clearTimeout(poseDetectionTimeoutRef.current);
+        poseDetectionTimeoutRef.current = null;
+      }
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
+      poseLandmarksRef.current = [];
+      latestPoseLandmarksRef.current = [];
+      lastPoseVideoTimeRef.current = -1;
+      isPoseDetectingRef.current = false;
     };
   }, [stream]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initializePoseLandmarker = async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+        );
+
+        if (cancelled) return;
+
+        const poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+          },
+          runningMode: "VIDEO",
+          numPoses: 1,
+        });
+
+        if (cancelled) {
+          poseLandmarker.close();
+          return;
+        }
+
+        poseLandmarkerRef.current = poseLandmarker;
+      } catch (err) {
+        console.error("Failed to initialize pose detector:", err);
+      }
+    };
+
+    initializePoseLandmarker();
+
+    return () => {
+      cancelled = true;
+      if (poseLandmarkerRef.current) {
+        poseLandmarkerRef.current.close();
+        poseLandmarkerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!stream || !isLiveTryOn) return;
+
+    const detectPose = () => {
+      const video = videoRef.current;
+      const poseLandmarker = poseLandmarkerRef.current;
+      if (!video || !poseLandmarker || video.readyState < 2) {
+        poseDetectionTimeoutRef.current = setTimeout(
+          detectPose,
+          POSE_DETECTION_INTERVAL_MS
+        );
+        return;
+      }
+
+      const now = performance.now();
+      const hasNewVideoFrame = video.currentTime !== lastPoseVideoTimeRef.current;
+      const isIntervalReady =
+        now - lastPoseDetectionTsRef.current >= POSE_DETECTION_INTERVAL_MS;
+
+      if (isIntervalReady && hasNewVideoFrame && !isPoseDetectingRef.current) {
+        isPoseDetectingRef.current = true;
+        lastPoseDetectionTsRef.current = now;
+        lastPoseVideoTimeRef.current = video.currentTime;
+
+        try {
+          const results = poseLandmarker.detectForVideo(video, now);
+          const landmarks = results?.landmarks || [];
+          poseLandmarksRef.current = landmarks;
+          latestPoseLandmarksRef.current = landmarks;
+        } catch (err) {
+          console.error("Pose detection failed:", err);
+        } finally {
+          isPoseDetectingRef.current = false;
+        }
+      }
+
+      poseDetectionTimeoutRef.current = setTimeout(
+        detectPose,
+        POSE_DETECTION_INTERVAL_MS
+      );
+    };
+
+    detectPose();
+
+    return () => {
+      if (poseDetectionTimeoutRef.current) {
+        clearTimeout(poseDetectionTimeoutRef.current);
+        poseDetectionTimeoutRef.current = null;
+      }
+      isPoseDetectingRef.current = false;
+      lastPoseVideoTimeRef.current = -1;
+    };
+  }, [stream, isLiveTryOn]);
 
   const startWebcam = async () => {
     try {
@@ -211,7 +333,14 @@ export default function TryFreePage() {
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
     }
+    if (poseDetectionTimeoutRef.current) {
+      clearTimeout(poseDetectionTimeoutRef.current);
+      poseDetectionTimeoutRef.current = null;
+    }
     processingRef.current = false;
+    poseLandmarksRef.current = [];
+    latestPoseLandmarksRef.current = [];
+    lastPoseVideoTimeRef.current = -1;
     setLoading(false);
   };
 
@@ -226,7 +355,7 @@ export default function TryFreePage() {
 
     // optimistic ping to wake server quickly
     try {
-      fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => {});
+      fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => { });
     } catch (e) {
       // ignore
     }
@@ -303,11 +432,10 @@ export default function TryFreePage() {
                 key={dress.id}
                 onClick={() => handleDressSelect(dress)}
                 className={`relative bg-white rounded-xl p-4 cursor-pointer transition-all duration-300 border-2 hover:scale-[1.015] hover:shadow-md transition-all
- ${
-   selectedDress?.id === dress.id
-     ? "shadow-lg border-indigo-500 scale-[1.02]"
-     : "shadow-sm hover:shadow-md border-slate-200 hover:border-indigo-300"
- }`}
+ ${selectedDress?.id === dress.id
+                    ? "shadow-lg border-indigo-500 scale-[1.02]"
+                    : "shadow-sm hover:shadow-md border-slate-200 hover:border-indigo-300"
+                  }`}
               >
                 <div className="w-24 h-24 flex items-center justify-center relative bg-slate-50 rounded-lg p-3">
                   <img
@@ -378,8 +506,15 @@ export default function TryFreePage() {
                   <canvas
                     ref={canvasRef}
                     className="w-full h-full object-cover absolute inset-0"
-                    style={{ display: isLiveTryOn ? "block" : "none" }}
+                    style={{ display: (isLiveTryOn && !use3D) ? "block" : "none" }}
                   />
+                  {stream && isLiveTryOn && use3D && (
+                    <AROverlay3D
+                      poseDataRef={poseLandmarksRef}
+                      selectedDress={selectedDress}
+                      isVisible={true}
+                    />
+                  )}
 
                   {/* Idle / "Ready to Begin" overlay */}
                   {!stream && selectedDress && (
@@ -498,6 +633,18 @@ export default function TryFreePage() {
                       <FaRedo className="w-3 h-3" />
                       Reset
                     </button>
+
+                    <div className="pt-2">
+                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={use3D}
+                          onChange={(e) => setUse3D(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs font-semibold text-slate-700">Experimental 3D Mode</span>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-slate-200">
@@ -536,3 +683,4 @@ export default function TryFreePage() {
     </section>
   );
 }
+
