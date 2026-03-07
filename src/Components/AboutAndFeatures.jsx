@@ -38,7 +38,7 @@ export default function AboutAndFeatures({
 
   return (
     <>
-      {/* 🌟 About Section */}
+      {/*About Section */}
       <section
         id="about"
         ref={aboutRef}
