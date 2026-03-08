@@ -1,19 +1,40 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, Environment, ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 import { SkeletonUtils } from "three-stdlib";
 
+function BodyOccluder({ position, rotation, scale }) {
+  return (
+    <mesh position={position} rotation={rotation} scale={scale}>
+      <cylinderGeometry args={[0.5, 0.45, 1, 32]} />
+      <meshBasicMaterial colorWrite={false} depthWrite={true} />
+    </mesh>
+  );
+}
+
 function BodyAnchorRig({ poseDataRef, selectedDress, videoRef }) {
+  const { camera } = useThree();
   const anchorRef = useRef(null);
   const attachedModelRef = useRef(null);
-  const modelWidthRef = useRef(1);
+  const modelSizeRef = useRef(new THREE.Vector3(1, 1, 1));
+
+  // Bone Refs
+  const bonesRef = useRef({
+    chest: null,
+    leftShoulder: null,
+    rightShoulder: null,
+    leftUpperArm: null,
+    rightUpperArm: null,
+    leftForearm: null,
+    rightForearm: null
+  });
 
   const targetPositionRef = useRef(new THREE.Vector3(0, 0, -3));
-  const targetScaleRef = useRef(1);
+  const targetScaleVectorRef = useRef(new THREE.Vector3(1, 1, 1));
   const targetYawRef = useRef(0);
   const targetRollRef = useRef(0);
-  const targetScaleVectorRef = useRef(new THREE.Vector3(1, 1, 1));
+  const targetPitchRef = useRef(0);
 
   const modelPath = selectedDress?.modelPath || "/models/tshirt.glb";
   const { scene } = useGLTF(modelPath);
@@ -31,6 +52,9 @@ function BodyAnchorRig({ poseDataRef, selectedDress, videoRef }) {
     anchor.rotation.set(0, 0, 0);
     anchor.scale.set(1, 1, 1);
 
+    // Reset bone refs
+    Object.keys(bonesRef.current).forEach(k => bonesRef.current[k] = null);
+
     if (attachedModelRef.current) {
       anchor.remove(attachedModelRef.current);
       attachedModelRef.current = null;
@@ -38,28 +62,21 @@ function BodyAnchorRig({ poseDataRef, selectedDress, videoRef }) {
 
     if (!modelClone) return;
 
-    modelClone.rotation.set(0, 0, 0);
-    modelClone.position.set(0, 0, 0);
-    modelClone.scale.set(1, 1, 1);
-    modelClone.updateMatrixWorld(true);
-
-    const box = new THREE.Box3();
     modelClone.traverse((child) => {
       child.frustumCulled = false;
 
-      if ((child.isMesh || child.isSkinnedMesh) && child.geometry) {
-        if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
-        const childBox = child.geometry.boundingBox.clone();
-        childBox.applyMatrix4(child.matrixWorld);
-        box.union(childBox);
-      }
-
-      if (child.isMesh && child.material) {
+      // Material Polish
+      if ((child.isMesh || child.isSkinnedMesh) && child.material) {
         const patchMaterial = (mat) => {
           mat.side = THREE.DoubleSide;
-          mat.depthTest = false;
-          mat.transparent = false;
+          mat.depthTest = true;
+          mat.depthWrite = true;
+          mat.transparent = !!mat.map || !!mat.alphaMap;
+          mat.alphaTest = mat.transparent ? 0.3 : 0;
           mat.needsUpdate = true;
+          if ("roughness" in mat) mat.roughness = 0.55;
+          if ("metalness" in mat) mat.metalness = 0.05;
+          mat.envMapIntensity = 1.0;
         };
 
         if (Array.isArray(child.material)) {
@@ -68,154 +85,184 @@ function BodyAnchorRig({ poseDataRef, selectedDress, videoRef }) {
           patchMaterial(child.material);
         }
       }
+
+      // Bone Discovery
+      if (child.isBone) {
+        const name = child.name.toLowerCase();
+        const isLeft = name.includes("left") || name.includes(".l") || name.endsWith("_l");
+        const isRight = name.includes("right") || name.includes(".r") || name.endsWith("_r");
+
+        if (!child.userData.baseRotation) {
+          child.userData.baseRotation = child.rotation.clone();
+        }
+
+        if (name.includes("chest") || name.includes("spine")) bonesRef.current.chest = child;
+        if (name.includes("shoulder")) {
+          if (isLeft) bonesRef.current.leftShoulder = child;
+          if (isRight) bonesRef.current.rightShoulder = child;
+        }
+        if (name.includes("upper") && name.includes("arm")) {
+          if (isLeft) bonesRef.current.leftUpperArm = child;
+          if (isRight) bonesRef.current.rightUpperArm = child;
+        } else if (name.includes("arm") && !name.includes("fore")) {
+          // Fallback for models with simple "arm" names
+          if (isLeft && !bonesRef.current.leftUpperArm) bonesRef.current.leftUpperArm = child;
+          if (isRight && !bonesRef.current.rightUpperArm) bonesRef.current.rightUpperArm = child;
+        }
+        if (name.includes("fore") || name.includes("lower")) {
+          if (isLeft) bonesRef.current.leftForearm = child;
+          if (isRight) bonesRef.current.rightForearm = child;
+        }
+      }
     });
 
-    if (!box.isEmpty() && Number.isFinite(box.max.x)) {
+    // Auto-scale logic - Using robust traverse method
+    const box = new THREE.Box3();
+    modelClone.traverse((child) => {
+      child.frustumCulled = false;
+      if ((child.isMesh || child.isSkinnedMesh) && child.geometry) {
+        if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+        const childBox = child.geometry.boundingBox.clone();
+        childBox.applyMatrix4(child.matrixWorld);
+        box.union(childBox);
+      }
+    });
+
+    if (!box.isEmpty()) {
       const size = new THREE.Vector3();
       const center = new THREE.Vector3();
       box.getSize(size);
       box.getCenter(center);
-
       const maxDim = Math.max(size.x, size.y, size.z);
       if (maxDim > 0) {
         const fitScale = 2 / maxDim;
         modelClone.scale.setScalar(fitScale);
         modelClone.position.copy(center).multiplyScalar(-fitScale);
-        modelWidthRef.current = Math.max(0.001, size.x * fitScale);
+        modelSizeRef.current.set(size.x * fitScale, size.y * fitScale, size.z * fitScale);
+        console.log("Model loaded and scaled:", modelPath, "Size:", modelSizeRef.current);
       }
+    } else {
+      console.warn("Model box is empty:", modelPath);
     }
 
     attachedModelRef.current = modelClone;
     anchor.add(modelClone);
 
     return () => {
-      if (attachedModelRef.current) {
-        anchor.remove(attachedModelRef.current);
-        attachedModelRef.current = null;
-      }
+      if (attachedModelRef.current) anchor.remove(attachedModelRef.current);
     };
   }, [modelClone]);
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     if (!anchorRef.current) return;
 
     const pose = poseDataRef.current?.[0];
-    const leftShoulder = pose?.[11];
-    const rightShoulder = pose?.[12];
-    const leftHip = pose?.[23];
-    const rightHip = pose?.[24];
-    const minVisibility = 0.1;
+    if (!pose) return;
 
-    const hasShoulders =
-      pose &&
-      pose.length >= 13 &&
-      leftShoulder &&
-      rightShoulder &&
-      (leftShoulder.visibility ?? 1) >= minVisibility &&
-      (rightShoulder.visibility ?? 1) >= minVisibility;
+    // Landmark indices
+    const L_SHOULDER = 11, R_SHOULDER = 12;
+    const L_ELBOW = 13, R_ELBOW = 14;
+    const L_WRIST = 15, R_WRIST = 16;
+    const L_HIP = 23, R_HIP = 24;
 
-    if (hasShoulders) {
-      const camera = state.camera;
-      const distance = Math.abs(camera.position.z - targetPositionRef.current.z);
-      const visibleHeight =
-        2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * distance;
-      const visibleWidth = visibleHeight * camera.aspect;
+    const minVis = 0.35;
+    const getPoint = (idx) => (pose[idx]?.visibility >= minVis) ? pose[idx] : null;
 
-      let cropX = 0;
-      let cropY = 0;
-      let factorX = 1;
-      let factorY = 1;
+    const ls = getPoint(L_SHOULDER), rs = getPoint(R_SHOULDER);
+    if (!ls || !rs) return;
 
-      const video = videoRef?.current;
-      if (video?.videoWidth && video?.videoHeight) {
-        const videoAspect = video.videoWidth / video.videoHeight;
-        const containerAspect = camera.aspect;
+    // --- SCREEN SPACE MAPPING ---
+    const dist = Math.abs(camera.position.z - targetPositionRef.current.z);
+    const vH = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5)) * dist;
+    const vW = vH * camera.aspect;
 
-        if (videoAspect > containerAspect) {
-          const visibleFractionX = containerAspect / videoAspect;
-          cropX = (1 - visibleFractionX) * 0.5;
-          factorX = 1 / visibleFractionX;
-        } else {
-          const visibleFractionY = videoAspect / containerAspect;
-          cropY = (1 - visibleFractionY) * 0.5;
-          factorY = 1 / visibleFractionY;
-        }
+    let cX = 0, cY = 0, fX = 1, fY = 1;
+    const video = videoRef?.current;
+    if (video?.videoWidth) {
+      const vA = video.videoWidth / video.videoHeight;
+      const cA = camera.aspect;
+      if (vA > cA) {
+        const frac = cA / vA;
+        cX = (1 - frac) * 0.5; fX = 1 / frac;
+      } else {
+        const frac = vA / cA;
+        cY = (1 - frac) * 0.5; fY = 1 / frac;
       }
-
-      const remap = (value, crop, factor) =>
-        THREE.MathUtils.clamp((value - crop) * factor, 0, 1);
-
-      const adjLSx = remap(leftShoulder.x, cropX, factorX);
-      const adjRSx = remap(rightShoulder.x, cropX, factorX);
-      const adjLSy = remap(leftShoulder.y, cropY, factorY);
-      const adjRSy = remap(rightShoulder.y, cropY, factorY);
-
-      const midX = (adjLSx + adjRSx) * 0.5;
-      const shoulderMidY = (adjLSy + adjRSy) * 0.5;
-
-      let torsoY = shoulderMidY;
-      if (
-        leftHip &&
-        rightHip &&
-        (leftHip.visibility ?? 1) >= minVisibility &&
-        (rightHip.visibility ?? 1) >= minVisibility
-      ) {
-        const adjLHy = remap(leftHip.y, cropY, factorY);
-        const adjRHy = remap(rightHip.y, cropY, factorY);
-        const hipMidY = (adjLHy + adjRHy) * 0.5;
-        torsoY = shoulderMidY + (hipMidY - shoulderMidY) * 0.35;
-      }
-
-      targetPositionRef.current.set((0.5 - midX) * visibleWidth, (0.5 - torsoY) * visibleHeight, -3);
-
-      const shoulderWidthNorm = Math.max(0.02, Math.abs(adjRSx - adjLSx));
-      const shoulderWidthWorld = shoulderWidthNorm * visibleWidth;
-      const scaleMultiplier = selectedDress?.scaleMultiplier ?? 1;
-      targetScaleRef.current = THREE.MathUtils.clamp(
-        (shoulderWidthWorld / modelWidthRef.current) * scaleMultiplier,
-        0.6,
-        4.5
-      );
-
-      const yawFromDepth = THREE.MathUtils.clamp(
-        (leftShoulder.z - rightShoulder.z) * 3.2,
-        -0.45,
-        0.45
-      );
-
-      const rollFromShoulders = THREE.MathUtils.clamp(
-        -Math.atan2(adjRSy - adjLSy, adjRSx - adjLSx),
-        -0.35,
-        0.35
-      );
-
-      targetYawRef.current = yawFromDepth;
-      targetRollRef.current = rollFromShoulders;
     }
 
-    anchorRef.current.position.lerp(targetPositionRef.current, 0.22);
+    const remap = (p, cx, cy, fx, fy) => ({
+      x: (p.x - cx) * fx,
+      y: (p.y - cy) * fy,
+      z: p.z
+    });
 
-    targetScaleVectorRef.current.set(
-      targetScaleRef.current,
-      targetScaleRef.current,
-      targetScaleRef.current
-    );
-    anchorRef.current.scale.lerp(targetScaleVectorRef.current, 0.22);
+    const lsr = remap(ls, cX, cY, fX, fY), rsr = remap(rs, cX, cY, fX, fY);
+    const midX = (lsr.x + rsr.x) * 0.5;
+    const midY = (lsr.y + rsr.y) * 0.5;
 
-    anchorRef.current.rotation.y = THREE.MathUtils.lerp(
-      anchorRef.current.rotation.y,
-      targetYawRef.current,
-      0.16
-    );
+    // Positioning
+    targetPositionRef.current.set((0.5 - midX) * vW, (0.5 - midY) * vH, -3);
 
-    anchorRef.current.rotation.z = THREE.MathUtils.lerp(
-      anchorRef.current.rotation.z,
-      targetRollRef.current * 0.25,
-      0.16
-    );
+    // Scaling
+    const sW = Math.abs(rsr.x - lsr.x) * vW;
+    const scaleMult = selectedDress?.scaleMultiplier || 1;
+    const baseScale = (sW / modelSizeRef.current.x) * scaleMult * 1.1;
+    targetScaleVectorRef.current.set(baseScale, baseScale, baseScale);
+
+    // Body Rotations
+    targetYawRef.current = (ls.z - rs.z) * 2.5;
+    targetRollRef.current = -Math.atan2(rsr.y - lsr.y, rsr.x - lsr.x);
+
+    // Apply main anchor transforms
+    anchorRef.current.position.lerp(targetPositionRef.current, 0.2);
+    anchorRef.current.scale.lerp(targetScaleVectorRef.current, 0.2);
+    anchorRef.current.rotation.y = THREE.MathUtils.lerp(anchorRef.current.rotation.y, targetYawRef.current, 0.15);
+    anchorRef.current.rotation.z = THREE.MathUtils.lerp(anchorRef.current.rotation.z, targetRollRef.current, 0.15);
+
+    // --- ADVANCED RIGGING ---
+    const lerpFactor = 1 - Math.exp(-delta * 12);
+
+    const rigBone = (bone, start, end, intensity = 1.0) => {
+      if (!bone || !start || !end) return;
+      const vec = new THREE.Vector3(end.x - start.x, start.y - end.y, start.z - end.z).normalize();
+
+      const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), vec);
+      bone.quaternion.slerp(targetQuat, lerpFactor);
+    };
+
+    const le = getPoint(L_ELBOW), re = getPoint(R_ELBOW);
+    const lw = getPoint(L_WRIST), rw = getPoint(R_WRIST);
+
+    if (le) rigBone(bonesRef.current.leftUpperArm, ls, le);
+    if (re) rigBone(bonesRef.current.rightUpperArm, rs, re);
+    if (le && lw) rigBone(bonesRef.current.leftForearm, le, lw);
+    if (re && rw) rigBone(bonesRef.current.rightForearm, re, rw);
+
+    // Chest bend based on hips if available
+    const lh = getPoint(L_HIP), rh = getPoint(R_HIP);
+    if (lh && rh && bonesRef.current.chest) {
+      const hipsMidZ = (lh.z + rh.z) * 0.5;
+      const shouldersMidZ = (ls.z + rs.z) * 0.5;
+      bonesRef.current.chest.rotation.x = THREE.MathUtils.lerp(
+        bonesRef.current.chest.rotation.x,
+        (shouldersMidZ - hipsMidZ) * 2.0,
+        lerpFactor
+      );
+    }
   });
 
-  return <group ref={anchorRef} name="BodyAnchor" />;
+  return (
+    <group ref={anchorRef} name="BodyAnchor">
+      <BodyOccluder
+        position={[0, -0.4, -0.15]}
+        scale={[
+          modelSizeRef.current.x * 0.6,
+          modelSizeRef.current.y * 1.5,
+          modelSizeRef.current.z * 0.5
+        ]}
+      />
+    </group>
+  );
 }
 
 function VideoPlane() {
@@ -240,12 +287,19 @@ export default function AROverlay3D({ poseDataRef, selectedDress, isVisible, vid
       <Canvas
         camera={{ position: [0, 0, 5], fov: 50 }}
         dpr={Math.min(window.devicePixelRatio || 1, 1.25)}
-        gl={{ antialias: false, alpha: true, powerPreference: "high-performance" }}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "high-performance",
+          stencil: true
+        }}
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
       >
-        <ambientLight intensity={1.5} />
-        <directionalLight position={[2, 5, 5]} intensity={1.5} />
-        <pointLight position={[-3, 5, 2]} intensity={0.8} />
+        <Environment preset="city" />
+        <ambientLight intensity={0.4} />
+        <directionalLight position={[5, 10, 5]} intensity={1.5} />
+        <pointLight position={[-5, 5, 2]} intensity={0.5} />
+
         <VideoPlane />
         <React.Suspense fallback={null}>
           <BodyAnchorRig
@@ -258,3 +312,4 @@ export default function AROverlay3D({ poseDataRef, selectedDress, isVisible, vid
     </div>
   );
 }
+
