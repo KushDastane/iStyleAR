@@ -122,8 +122,8 @@ export default function PublicNavbar() {
     <nav
       ref={navRef}
       className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${scrolled
-          ? "bg-white/95 backdrop-blur-lg shadow-lg border-gray-200"
-          : "bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm"
+        ? "bg-white/95 backdrop-blur-lg shadow-lg border-gray-200"
+        : "bg-gradient-to-b from-black/30 to-transparent backdrop-blur-sm"
         }`}
     >
       <div className="relative max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -148,8 +148,8 @@ export default function PublicNavbar() {
                 key={link.id}
                 onClick={(e) => handleNavClick(e, link.id)}
                 className={`group flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all duration-300 ${scrolled
-                    ? "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
-                    : "text-white hover:bg-white/20"
+                  ? "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+                  : "text-white hover:bg-white/20"
                   }`}
               >
                 <Icon className="text-base group-hover:scale-110 transition-transform duration-300" />
@@ -164,8 +164,8 @@ export default function PublicNavbar() {
           <button
             onClick={(e) => handleNavClick(e, "try-free-section")}
             className={`group flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${scrolled
-                ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700"
-                : "bg-white text-indigo-600 shadow-lg hover:shadow-xl hover:bg-gray-50"
+              ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg hover:shadow-xl hover:from-indigo-700 hover:to-purple-700"
+              : "bg-white text-indigo-600 shadow-lg hover:shadow-xl hover:bg-gray-50"
               }`}
           >
             <FaCamera />
@@ -176,8 +176,8 @@ export default function PublicNavbar() {
           <Link
             to="/login"
             className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold transition-all duration-300 border-2 ${scrolled
-                ? "border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white"
-                : "border-white text-white hover:bg-white hover:text-indigo-600"
+              ? "border-indigo-600 text-indigo-600 hover:bg-indigo-600 hover:text-white"
+              : "border-white text-white hover:bg-white hover:text-indigo-600"
               }`}
           >
             <FaSignInAlt />
@@ -188,8 +188,8 @@ export default function PublicNavbar() {
         {/* MOBILE HAMBURGER */}
         <button
           className={`hamburger-btn md:hidden p-2 rounded-lg transition-all duration-300 ${scrolled
-              ? "text-gray-900 hover:bg-gray-100"
-              : "text-white hover:bg-white/20"
+            ? "text-gray-900 hover:bg-gray-100"
+            : "text-white hover:bg-white/20"
             }`}
           onClick={toggleMenu}
         >
@@ -209,8 +209,8 @@ export default function PublicNavbar() {
       <div
         ref={menuRef}
         className={`md:hidden transition-all duration-500 origin-top ${open
-            ? "max-h-screen opacity-100 translate-y-0"
-            : "max-h-0 opacity-0 -translate-y-4 overflow-hidden"
+          ? "max-h-screen opacity-100 translate-y-0"
+          : "max-h-0 opacity-0 -translate-y-4 overflow-hidden"
           } bg-white/98 backdrop-blur-lg shadow-2xl border-t border-gray-200`}
       >
         <div className="px-6 py-6 flex flex-col gap-2">
@@ -256,7 +256,7 @@ export default function PublicNavbar() {
       </div>
 
       {/* ANIMATIONS */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideIn {
           from {
             opacity: 0;

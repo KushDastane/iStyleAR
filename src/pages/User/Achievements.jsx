@@ -177,11 +177,10 @@ export default function Achievements() {
           {stats.map((stat, index) => (
             <div
               key={stat.label}
-              className={`bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 transform hover:-translate-y-2 ${
-                animateStats
+              className={`bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 p-6 transform hover:-translate-y-2 ${animateStats
                   ? "opacity-100 translate-y-0"
                   : "opacity-0 translate-y-4"
-              }`}
+                }`}
               style={{
                 transitionDelay: `${index * 100}ms`,
                 transition: "all 0.5s ease-out",
@@ -385,7 +384,7 @@ export default function Achievements() {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeInUp {
           from {
             opacity: 0;

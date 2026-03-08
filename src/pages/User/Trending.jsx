@@ -481,11 +481,10 @@ export default function Trending() {
             {/* Filter Button */}
             <button
               onClick={() => setShowFavoritesOnly((prev) => !prev)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 ${
-                showFavoritesOnly
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 ${showFavoritesOnly
                   ? "bg-gradient-to-r from-pink-500 to-rose-600 text-white scale-105"
                   : "bg-white text-gray-700 border-2 border-gray-200 hover:border-pink-300"
-              }`}
+                }`}
             >
               <FaFilter className="w-4 h-4" />
               {showFavoritesOnly ? "Show All" : "Favorites Only"}
@@ -597,13 +596,12 @@ export default function Trending() {
                     disabled={
                       addedItems.includes(item.id) || addingId === item.id
                     }
-                    className={`absolute bottom-3 right-3 text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${
-                      addedItems.includes(item.id)
+                    className={`absolute bottom-3 right-3 text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg transition-all duration-300 transform ${addedItems.includes(item.id)
                         ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white cursor-default scale-105"
                         : addingId === item.id
-                        ? "bg-gray-400 cursor-not-allowed text-white"
-                        : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white hover:scale-105 active:scale-95"
-                    }`}
+                          ? "bg-gray-400 cursor-not-allowed text-white"
+                          : "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white hover:scale-105 active:scale-95"
+                      }`}
                   >
                     {addedItems.includes(item.id) ? (
                       <>
@@ -656,7 +654,7 @@ export default function Trending() {
       </div>
 
       {/* Card entrance animation */}
-      <style jsx>{`
+      <style>{`
         @keyframes fadeInUp {
           from {
             opacity: 0;

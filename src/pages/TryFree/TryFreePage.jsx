@@ -14,7 +14,7 @@ import ARWakeUpModal from "../../Components/ARWakeUpModal";
 import AROverlay3D from "../../Components/AROverlay3D";
 import { latestPoseLandmarksRef } from "../../utils/poseLandmarksStore";
 
-function smoothPoseLandmarks(prevLandmarks, nextLandmarks, alpha = 0.22) {
+function smoothPoseLandmarks(prevLandmarks, nextLandmarks, alpha = 0.45) {
   if (!nextLandmarks?.length) return [];
   if (!prevLandmarks?.length || !prevLandmarks[0]?.length) return nextLandmarks;
 
@@ -62,7 +62,7 @@ export default function TryFreePage() {
     {
       id: 3,
       name: "Classic T-Shirt",
-      modelPath: "/models/jacket.glb",
+      modelPath: "/models/tshirt.glb",
       img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1762696034/wardrobe/tE1OmRIo9BPuVVyoyWROLjeGeWM2/bko2pmrn2hn5nkrectkn.png",
       rotationY: 0,
       scaleMultiplier: 1.0,
@@ -189,7 +189,7 @@ export default function TryFreePage() {
             const smoothed = smoothPoseLandmarks(
               smoothedPoseRef.current,
               landmarks,
-              0.22
+              0.45
             );
             smoothedPoseRef.current = smoothed;
             poseLandmarksRef.current = smoothed;
@@ -433,7 +433,7 @@ export default function TryFreePage() {
                       poseDataRef={poseLandmarksRef}
                       selectedDress={selectedDress}
                       isVisible={true}
-                      videoRef={videoRef}
+                    videoRef={videoRef}
                     />
                   )}
 
@@ -594,6 +594,4 @@ export default function TryFreePage() {
     </section>
   );
 }
-
-
 
