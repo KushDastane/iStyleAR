@@ -1,3 +1,4 @@
+import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 import { useState, useRef, useEffect } from "react";
 import {
   FaTshirt,
@@ -26,6 +27,15 @@ export default function TryFreePage() {
   const BACKEND = import.meta.env.VITE_API_URL || "";
   const [showWakeModal, setShowWakeModal] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+
+  const poseDetectorRef = useRef(null);
+  const poseLandmarksRef = useRef([]);
+  const smoothedPoseLandmarksRef = useRef([]);
+  const clothingImageCacheRef = useRef(new Map());
+  const clothingImageMetaRef = useRef(new Map());
+  const overlayStateRef = useRef(null);
+  const frameCounterRef = useRef(0);
+
 
   // computed health url used by modal
   const healthUrl = BACKEND
@@ -58,6 +68,205 @@ export default function TryFreePage() {
         block: "center",
       });
     }, 150);
+  };
+
+
+  useEffect(() => {
+    async function loadDetector() {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+        );
+        poseDetectorRef.current = await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+          },
+          runningMode: "VIDEO",
+          numPoses: 1,
+        });
+        console.log("Pose model loaded");
+      } catch (err) {
+        console.error("Failed to load pose detector", err);
+      }
+    }
+    loadDetector();
+  }, []);
+
+  const computeImageContentMetrics = (img) => {
+    try {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (!w || !h) return null;
+      const maxDim = 512;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      const sw = Math.max(1, Math.round(w * scale));
+      const sh = Math.max(1, Math.round(h * scale));
+      const off = document.createElement("canvas");
+      off.width = sw;
+      off.height = sh;
+      const octx = off.getContext("2d", { willReadFrequently: true });
+      octx.clearRect(0, 0, sw, sh);
+      octx.drawImage(img, 0, 0, sw, sh);
+      const data = octx.getImageData(0, 0, sw, sh).data;
+      let minX = sw, minY = sh, maxX = -1, maxY = -1;
+      for (let y = 0; y < sh; y += 1) {
+        for (let x = 0; x < sw; x += 1) {
+          if (data[(y * sw + x) * 4 + 3] > 8) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (maxX < minX || maxY < minY) return null;
+      const cropW = Math.max(1, maxX - minX + 1);
+      const cropH = Math.max(1, maxY - minY + 1);
+      let neckRow = Math.round(cropH * 0.12);
+      for (let y = minY; y <= maxY; y += 1) {
+        let covered = 0;
+        for (let x = minX; x <= maxX; x += 1) {
+          if (data[(y * sw + x) * 4 + 3] > 16) covered += 1;
+        }
+        if (covered / cropW >= 0.22) {
+          neckRow = y - minY;
+          break;
+        }
+      }
+      return {
+        sxNorm: minX / sw, syNorm: minY / sh,
+        swNorm: cropW / sw, shNorm: cropH / sh,
+        aspect: cropH / cropW, neckNorm: neckRow / cropH,
+      };
+    } catch { return null; }
+  };
+
+  const preloadDressImage = (imageUrl) => {
+    if (!imageUrl) return Promise.resolve(null);
+    const cached = clothingImageCacheRef.current.get(imageUrl);
+    if (cached) return Promise.resolve(cached);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        clothingImageCacheRef.current.set(imageUrl, img);
+        clothingImageMetaRef.current.set(imageUrl, computeImageContentMetrics(img));
+        resolve(img);
+      };
+      img.onerror = reject;
+      img.src = imageUrl;
+    });
+  };
+
+  useEffect(() => {
+    if (selectedDress?.img) {
+      preloadDressImage(selectedDress.img).catch(console.error);
+    }
+  }, [selectedDress]);
+
+  const computeOverlayTransform = (poseLandmarks, canvasWidth, canvasHeight) => {
+    const pose = poseLandmarks?.[0];
+    if (!pose || pose.length < 25) return null;
+    const leftShoulder = pose[11], rightShoulder = pose[12], leftHip = pose[23], rightHip = pose[24];
+    if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return null;
+    const shoulderCx = ((leftShoulder.x + rightShoulder.x) * 0.5) * canvasWidth;
+    const shoulderCy = ((leftShoulder.y + rightShoulder.y) * 0.5) * canvasHeight;
+    const hipCx = ((leftHip.x + rightHip.x) * 0.5) * canvasWidth;
+    const hipCy = ((leftHip.y + rightHip.y) * 0.5) * canvasHeight;
+    const shoulderSpan = Math.hypot((rightShoulder.x - leftShoulder.x) * canvasWidth, (rightShoulder.y - leftShoulder.y) * canvasHeight);
+    const hipSpan = Math.hypot((rightHip.x - leftHip.x) * canvasWidth, (rightHip.y - leftHip.y) * canvasHeight);
+    const torsoHeight = Math.hypot(hipCx - shoulderCx, hipCy - shoulderCy);
+
+    const itemName = selectedDress?.name?.toLowerCase() || "";
+    const isAccessory = itemName.includes("muffler") || itemName.includes("scarf") || itemName.includes("tie");
+    const widthBaseMult = isAccessory ? 0.75 : 1.75;
+    const heightBaseMult = isAccessory ? 1.0 : 1.75;
+
+    const width = Math.max(isAccessory ? 80 : 160, shoulderSpan * widthBaseMult);
+    const height = Math.max(width * 1.35, torsoHeight * heightBaseMult);
+    const centerX = shoulderCx;
+    const collarLift = torsoHeight * 0.14;
+    const centerY = shoulderCy - collarLift + height * 0.5;
+    let angle = Math.atan2(rightShoulder.y - leftShoulder.y, rightShoulder.x - leftShoulder.x);
+    if (angle > Math.PI / 2) angle -= Math.PI;
+    if (angle < -Math.PI / 2) angle += Math.PI;
+    angle = Math.max(-0.65, Math.min(0.65, angle));
+
+    const shoulderZDelta = (rightShoulder.z ?? 0) - (leftShoulder.z ?? 0);
+    const shoulderXSpan = Math.max(0.01, Math.abs(rightShoulder.x - leftShoulder.x));
+    const yawRatio = shoulderZDelta / shoulderXSpan;
+    const yawStrength = Math.min(1, Math.abs(yawRatio) * 0.25);
+    const yawDirection = Math.sign(yawRatio) || 1;
+
+    const torsoLean = (shoulderCx - hipCx) / Math.max(1, torsoHeight);
+    const shoulderAngle = Math.atan2(rightShoulder.y - leftShoulder.y, rightShoulder.x - leftShoulder.x);
+    const hipAngle = Math.atan2(rightHip.y - leftHip.y, rightHip.x - leftHip.x);
+    const torsoTwist = Math.atan2(Math.sin(shoulderAngle - hipAngle), Math.cos(shoulderAngle - hipAngle));
+    const taper = (shoulderSpan - hipSpan) / Math.max(1, hipSpan);
+
+    const scaleX = Math.max(0.62, 1 - yawStrength * 0.45);
+    const scaleY = Math.max(0.9, Math.min(1.12, 1 + taper * 0.08));
+    const depthOffsetX = yawDirection * width * yawStrength * 0.08;
+    const shearX = Math.max(-0.22, Math.min(0.22, torsoLean * 0.9 + torsoTwist * 0.45));
+    const shoulderDrop = rightShoulder.y - leftShoulder.y;
+    const hipDrop = rightHip.y - leftHip.y;
+    const shearY = Math.max(-0.1, Math.min(0.1, (shoulderDrop - hipDrop) * 0.55));
+
+    return { centerX, centerY, width, height, angle, scaleX, scaleY, shearX, shearY, depthOffsetX };
+  };
+
+  const smoothOverlayTransform = (current, previous, alpha) => {
+    if (!current) return previous;
+    if (!previous) return current;
+    const angleDelta = Math.atan2(Math.sin(current.angle - previous.angle), Math.cos(current.angle - previous.angle));
+    const MAX_ANGLE_STEP = 0.35;
+    const safeDelta = Math.abs(angleDelta) > MAX_ANGLE_STEP ? Math.sign(angleDelta) * MAX_ANGLE_STEP : angleDelta;
+    return {
+      centerX: alpha * current.centerX + (1 - alpha) * previous.centerX,
+      centerY: alpha * current.centerY + (1 - alpha) * previous.centerY,
+      width: alpha * current.width + (1 - alpha) * previous.width,
+      height: alpha * current.height + (1 - alpha) * previous.height,
+      angle: previous.angle + alpha * safeDelta,
+      scaleX: alpha * current.scaleX + (1 - alpha) * previous.scaleX,
+      scaleY: alpha * current.scaleY + (1 - alpha) * previous.scaleY,
+      depthOffsetX: alpha * (current.depthOffsetX ?? 0) + (1 - alpha) * (previous.depthOffsetX ?? 0),
+      shearX: alpha * (current.shearX ?? 0) + (1 - alpha) * (previous.shearX ?? 0),
+      shearY: alpha * (current.shearY ?? 0) + (1 - alpha) * (previous.shearY ?? 0),
+    };
+  };
+
+  const drawClothingOverlay = (ctx, image, transform, contentMetrics) => {
+    if (!ctx || !image || !transform) return;
+    ctx.save();
+    ctx.translate(transform.centerX + (transform.depthOffsetX ?? 0), transform.centerY);
+    ctx.rotate(transform.angle);
+    ctx.transform(1, transform.shearY ?? 0, transform.shearX ?? 0, 1, 0, 0);
+    ctx.scale(transform.scaleX, transform.scaleY);
+    const srcX = Math.round((contentMetrics?.sxNorm ?? 0) * image.naturalWidth);
+    const srcY = Math.round((contentMetrics?.syNorm ?? 0) * image.naturalHeight);
+    const srcW = Math.max(1, Math.round((contentMetrics?.swNorm ?? 1) * image.naturalWidth));
+    const srcH = Math.max(1, Math.round((contentMetrics?.shNorm ?? 1) * image.naturalHeight));
+    const contentAspect = contentMetrics?.aspect || transform.height / Math.max(1, transform.width);
+    const fitWidthFromHeight = transform.height / Math.max(0.2, contentAspect);
+    const drawWidth = transform.width * 0.74 + fitWidthFromHeight * 0.26;
+    const drawHeight = transform.height;
+    const neckNorm = Math.max(0, Math.min(0.45, contentMetrics?.neckNorm ?? 0.12));
+    const targetNeckLocalY = -drawHeight * 0.47;
+    const sourceNeckLocalY = -drawHeight / 2 + neckNorm * drawHeight;
+    const drawYOffset = targetNeckLocalY - sourceNeckLocalY;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.filter = "blur(1.2px)";
+    ctx.drawImage(image, srcX, srcY, srcW, srcH, -drawWidth / 2 - 2, -drawHeight / 2 + drawYOffset - 2, drawWidth + 4, drawHeight + 4);
+    ctx.restore();
+
+    ctx.globalAlpha = 0.95;
+    ctx.drawImage(image, srcX, srcY, srcW, srcH, -drawWidth / 2, -drawHeight / 2 + drawYOffset, drawWidth, drawHeight);
+    ctx.restore();
   };
 
   const handleReset = () => {
@@ -102,97 +311,90 @@ export default function TryFreePage() {
     }
   };
 
-  const processFrame = async () => {
+  const smoothLandmarks = (currentLandmarks, previousLandmarks, alpha) => {
+    if (!currentLandmarks?.length) return [];
+    if (!previousLandmarks?.length) return currentLandmarks;
+
+    return currentLandmarks.map((pose, poseIdx) => {
+      const prevPose = previousLandmarks[poseIdx];
+      if (!prevPose || prevPose.length !== pose.length) return pose;
+
+      return pose.map((point, pointIdx) => {
+        const prevPoint = prevPose[pointIdx];
+        if (!prevPoint) return point;
+
+        return {
+          ...point,
+          x: alpha * point.x + (1 - alpha) * prevPoint.x,
+          y: alpha * point.y + (1 - alpha) * prevPoint.y,
+          z: alpha * (point.z ?? 0) + (1 - alpha) * (prevPoint.z ?? 0),
+        };
+      });
+    });
+  };
+
+  const processFrame = () => {
     if (
       !selectedDress ||
       !canvasRef.current ||
       !videoRef.current ||
-      !isLiveTryOnRef.current ||
-      processingRef.current
+      !isLiveTryOnRef.current
     ) {
       if (isLiveTryOnRef.current)
         animationRef.current = requestAnimationFrame(processFrame);
       return;
     }
 
-    processingRef.current = true;
-
     const canvas = canvasRef.current;
     const video = videoRef.current;
     const ctx = canvas.getContext("2d");
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const videoWidth = video.videoWidth || 640;
+    const videoHeight = video.videoHeight || 480;
+    if (canvas.width !== videoWidth || canvas.height !== videoHeight) {
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
+    }
 
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const previewCanvas = document.createElement("canvas");
-    previewCanvas.width = canvas.width;
-    previewCanvas.height = canvas.height;
-    const previewCtx = previewCanvas.getContext("2d");
-
-    previewCtx.save();
-    previewCtx.scale(-1, 1);
-    previewCtx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-    previewCtx.restore();
-
-    if (lastOverlayRef.current) {
-      previewCtx.save();
-      previewCtx.scale(-1, 1);
-      previewCtx.drawImage(
-        lastOverlayRef.current,
-        -canvas.width,
-        0,
-        canvas.width,
-        canvas.height
-      );
-      previewCtx.restore();
+    if (canvas.width === 0 || canvas.height === 0) {
+      animationRef.current = requestAnimationFrame(processFrame);
+      return;
     }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(previewCanvas, 0, 0);
+    // Draw video locally so mirrored CSS takes effect on both
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    try {
-      const downscaledCanvas = document.createElement("canvas");
-      const downscaledCtx = downscaledCanvas.getContext("2d");
-      downscaledCanvas.width = video.videoWidth * 0.5;
-      downscaledCanvas.height = video.videoHeight * 0.5;
-      downscaledCtx.drawImage(
-        video,
-        0,
-        0,
-        downscaledCanvas.width,
-        downscaledCanvas.height
-      );
-
-      const frameData = downscaledCanvas
-        .toDataURL("image/jpeg", 0.8)
-        .split(",")[1];
-      const response = await fetch(`${BACKEND}/tryon`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          frame: frameData,
-          shirtUrl: selectedDress.img,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.result) {
-        const resultImg = new Image();
-        resultImg.onload = () => {
-          lastOverlayRef.current = resultImg;
-        };
-        resultImg.src = `data:image/jpeg;base64,${data.result}`;
+    let poseResults = null;
+    if (poseDetectorRef.current) {
+      try {
+        if (video.currentTime > 0) {
+          poseResults = poseDetectorRef.current.detectForVideo(video, performance.now());
+        }
+      } catch (err) {
+        console.error("Detection error:", err);
       }
-    } catch (err) {
-      console.error("API call failed:", err);
-    } finally {
-      processingRef.current = false;
-      if (isLiveTryOnRef.current) {
-        animationRef.current = requestAnimationFrame(processFrame);
-      }
+    }
+
+    const rawLandmarks = poseResults?.landmarks || [];
+    const smoothedPose = smoothLandmarks(rawLandmarks, smoothedPoseLandmarksRef.current, 0.6);
+    smoothedPoseLandmarksRef.current = smoothedPose;
+
+    if (smoothedPose.length > 0) {
+      const nextOverlay = computeOverlayTransform(smoothedPose, canvas.width, canvas.height);
+      overlayStateRef.current = smoothOverlayTransform(nextOverlay, overlayStateRef.current, 0.6);
+    }
+
+    const dressImage = selectedDress?.img ? clothingImageCacheRef.current.get(selectedDress.img) : null;
+    const dressMeta = selectedDress?.img ? clothingImageMetaRef.current.get(selectedDress.img) : null;
+    const overlayTransform = overlayStateRef.current;
+
+    if (dressImage && overlayTransform) {
+      drawClothingOverlay(ctx, dressImage, overlayTransform, dressMeta);
+    }
+
+    if (isLiveTryOnRef.current) {
+      animationRef.current = requestAnimationFrame(processFrame);
     }
   };
 
@@ -226,7 +428,7 @@ export default function TryFreePage() {
 
     // optimistic ping to wake server quickly
     try {
-      fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => {});
+      fetch(healthUrl, { method: "GET", cache: "no-store" }).catch(() => { });
     } catch (e) {
       // ignore
     }
@@ -303,11 +505,10 @@ export default function TryFreePage() {
                 key={dress.id}
                 onClick={() => handleDressSelect(dress)}
                 className={`relative bg-white rounded-xl p-4 cursor-pointer transition-all duration-300 border-2 hover:scale-[1.015] hover:shadow-md transition-all
- ${
-   selectedDress?.id === dress.id
-     ? "shadow-lg border-indigo-500 scale-[1.02]"
-     : "shadow-sm hover:shadow-md border-slate-200 hover:border-indigo-300"
- }`}
+ ${selectedDress?.id === dress.id
+                    ? "shadow-lg border-indigo-500 scale-[1.02]"
+                    : "shadow-sm hover:shadow-md border-slate-200 hover:border-indigo-300"
+                  }`}
               >
                 <div className="w-24 h-24 flex items-center justify-center relative bg-slate-50 rounded-lg p-3">
                   <img
@@ -378,7 +579,7 @@ export default function TryFreePage() {
                   <canvas
                     ref={canvasRef}
                     className="w-full h-full object-cover absolute inset-0"
-                    style={{ display: isLiveTryOn ? "block" : "none" }}
+                    style={{ display: isLiveTryOn ? "block" : "none", transform: "scaleX(-1)" }}
                   />
 
                   {/* Idle / "Ready to Begin" overlay */}
