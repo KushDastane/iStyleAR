@@ -14,6 +14,26 @@ import ARWakeUpModal from "../../Components/ARWakeUpModal";
 import AROverlay3D from "../../Components/AROverlay3D";
 import { latestPoseLandmarksRef } from "../../utils/poseLandmarksStore";
 
+function smoothPoseLandmarks(prevLandmarks, nextLandmarks, alpha = 0.22) {
+  if (!nextLandmarks?.length) return [];
+  if (!prevLandmarks?.length || !prevLandmarks[0]?.length) return nextLandmarks;
+
+  return nextLandmarks.map((pose, poseIdx) => {
+    const prevPose = prevLandmarks[poseIdx];
+    if (!prevPose?.length || prevPose.length !== pose.length) return pose;
+    return pose.map((point, idx) => {
+      const prev = prevPose[idx];
+      if (!prev) return point;
+      return {
+        ...point,
+        x: prev.x + (point.x - prev.x) * alpha,
+        y: prev.y + (point.y - prev.y) * alpha,
+        z: prev.z + (point.z - prev.z) * alpha,
+        visibility: Math.max(prev.visibility ?? 0, point.visibility ?? 0),
+      };
+    });
+  });
+}
 export default function TryFreePage() {
   const [selectedDress, setSelectedDress] = useState(null);
   const [stream, setStream] = useState(null);
@@ -21,43 +41,32 @@ export default function TryFreePage() {
   const [loading, setLoading] = useState(false);
   const previewRef = useRef(null);
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const animationRef = useRef(null);
-  const processingRef = useRef(false);
-  const isLiveTryOnRef = useRef(false);
-  const lastOverlayRef = useRef(null);
   const poseLandmarkerRef = useRef(null);
   const poseLandmarksRef = useRef([]);
   const poseDetectionTimeoutRef = useRef(null);
-  const lastPoseDetectionTsRef = useRef(0);
+  const lastPoseDetectionTsRef = useRef(performance.now());
   const lastPoseVideoTimeRef = useRef(-1);
   const isPoseDetectingRef = useRef(false);
-  const POSE_DETECTION_INTERVAL_MS = 80;
+  const smoothedPoseRef = useRef([]);
+  const lostPoseFramesRef = useRef(0);
+  const POSE_DETECTION_INTERVAL_MS = 33;
   const BACKEND = import.meta.env.VITE_API_URL || "";
   const [showWakeModal, setShowWakeModal] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
-  const [use3D, setUse3D] = useState(true); // Default to 3D for experiments
 
   // computed health url used by modal
   const healthUrl = BACKEND
     ? `${BACKEND.replace(/\/$/, "")}/health`
     : "/health";
-
   const demoClothes = [
     {
-      id: 1,
-      name: "Men's Suit",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1762707319/wardrobe/4uXaATkQjpPuy71gWKh1LRC25hz1/wjcjyy0dpm04xsxpj9ls.png",
-    },
-    {
-      id: 2,
-      name: "Female Dupatta",
-      img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1762706947/wardrobe/4uXaATkQjpPuy71gWKh1LRC25hz1/u66buogxqfneg1flxysr.png",
-    },
-    {
       id: 3,
-      name: "Unisex Tshirt",
+      name: "Classic T-Shirt",
+      modelPath: "/models/jacket.glb",
       img: "https://res.cloudinary.com/dyiaqidiq/image/upload/v1762696034/wardrobe/tE1OmRIo9BPuVVyoyWROLjeGeWM2/bko2pmrn2hn5nkrectkn.png",
+      rotationY: 0,
+      scaleMultiplier: 1.0,
+      offsetY: -1.35,
     },
   ];
 
@@ -74,14 +83,7 @@ export default function TryFreePage() {
   const handleReset = () => {
     setSelectedDress(null);
     setIsLiveTryOn(false);
-    isLiveTryOnRef.current = false;
-    lastOverlayRef.current = null;
-    poseLandmarksRef.current = [];
-    latestPoseLandmarksRef.current = [];
     lastPoseVideoTimeRef.current = -1;
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
     if (poseDetectionTimeoutRef.current) {
       clearTimeout(poseDetectionTimeoutRef.current);
       poseDetectionTimeoutRef.current = null;
@@ -94,9 +96,6 @@ export default function TryFreePage() {
 
   useEffect(() => {
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
       if (poseDetectionTimeoutRef.current) {
         clearTimeout(poseDetectionTimeoutRef.current);
         poseDetectionTimeoutRef.current = null;
@@ -106,6 +105,8 @@ export default function TryFreePage() {
       }
       poseLandmarksRef.current = [];
       latestPoseLandmarksRef.current = [];
+      smoothedPoseRef.current = [];
+      lostPoseFramesRef.current = 0;
       lastPoseVideoTimeRef.current = -1;
       isPoseDetectingRef.current = false;
     };
@@ -129,6 +130,9 @@ export default function TryFreePage() {
           },
           runningMode: "VIDEO",
           numPoses: 1,
+          minPoseDetectionConfidence: 0.45,
+          minPosePresenceConfidence: 0.45,
+          minTrackingConfidence: 0.45,
         });
 
         if (cancelled) {
@@ -180,8 +184,25 @@ export default function TryFreePage() {
         try {
           const results = poseLandmarker.detectForVideo(video, now);
           const landmarks = results?.landmarks || [];
-          poseLandmarksRef.current = landmarks;
-          latestPoseLandmarksRef.current = landmarks;
+
+          if (landmarks.length > 0) {
+            const smoothed = smoothPoseLandmarks(
+              smoothedPoseRef.current,
+              landmarks,
+              0.22
+            );
+            smoothedPoseRef.current = smoothed;
+            poseLandmarksRef.current = smoothed;
+            latestPoseLandmarksRef.current = smoothed;
+            lostPoseFramesRef.current = 0;
+          } else {
+            lostPoseFramesRef.current += 1;
+            if (lostPoseFramesRef.current > 30) {
+              smoothedPoseRef.current = [];
+              poseLandmarksRef.current = [];
+              latestPoseLandmarksRef.current = [];
+            }
+          }
         } catch (err) {
           console.error("Pose detection failed:", err);
         } finally {
@@ -204,6 +225,8 @@ export default function TryFreePage() {
       }
       isPoseDetectingRef.current = false;
       lastPoseVideoTimeRef.current = -1;
+      smoothedPoseRef.current = [];
+      lostPoseFramesRef.current = 0;
     };
   }, [stream, isLiveTryOn]);
 
@@ -224,122 +247,24 @@ export default function TryFreePage() {
     }
   };
 
-  const processFrame = async () => {
-    if (
-      !selectedDress ||
-      !canvasRef.current ||
-      !videoRef.current ||
-      !isLiveTryOnRef.current ||
-      processingRef.current
-    ) {
-      if (isLiveTryOnRef.current)
-        animationRef.current = requestAnimationFrame(processFrame);
-      return;
-    }
-
-    processingRef.current = true;
-
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    const ctx = canvas.getContext("2d");
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const previewCanvas = document.createElement("canvas");
-    previewCanvas.width = canvas.width;
-    previewCanvas.height = canvas.height;
-    const previewCtx = previewCanvas.getContext("2d");
-
-    previewCtx.save();
-    previewCtx.scale(-1, 1);
-    previewCtx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
-    previewCtx.restore();
-
-    if (lastOverlayRef.current) {
-      previewCtx.save();
-      previewCtx.scale(-1, 1);
-      previewCtx.drawImage(
-        lastOverlayRef.current,
-        -canvas.width,
-        0,
-        canvas.width,
-        canvas.height
-      );
-      previewCtx.restore();
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(previewCanvas, 0, 0);
-
-    try {
-      const downscaledCanvas = document.createElement("canvas");
-      const downscaledCtx = downscaledCanvas.getContext("2d");
-      downscaledCanvas.width = video.videoWidth * 0.5;
-      downscaledCanvas.height = video.videoHeight * 0.5;
-      downscaledCtx.drawImage(
-        video,
-        0,
-        0,
-        downscaledCanvas.width,
-        downscaledCanvas.height
-      );
-
-      const frameData = downscaledCanvas
-        .toDataURL("image/jpeg", 0.8)
-        .split(",")[1];
-      const response = await fetch(`${BACKEND}/tryon`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          frame: frameData,
-          shirtUrl: selectedDress.img,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.result) {
-        const resultImg = new Image();
-        resultImg.onload = () => {
-          lastOverlayRef.current = resultImg;
-        };
-        resultImg.src = `data:image/jpeg;base64,${data.result}`;
-      }
-    } catch (err) {
-      console.error("API call failed:", err);
-    } finally {
-      processingRef.current = false;
-      if (isLiveTryOnRef.current) {
-        animationRef.current = requestAnimationFrame(processFrame);
-      }
-    }
-  };
-
   const startLiveTryOn = () => {
     if (!selectedDress || !stream) return;
     setIsLiveTryOn(true);
-    isLiveTryOnRef.current = true;
     setLoading(true);
-    animationRef.current = requestAnimationFrame(processFrame);
+    // 2D processing removed
     setTimeout(() => setLoading(false), 1000);
   };
 
   const stopLiveTryOn = () => {
     setIsLiveTryOn(false);
-    isLiveTryOnRef.current = false;
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-    }
     if (poseDetectionTimeoutRef.current) {
       clearTimeout(poseDetectionTimeoutRef.current);
       poseDetectionTimeoutRef.current = null;
     }
-    processingRef.current = false;
     poseLandmarksRef.current = [];
     latestPoseLandmarksRef.current = [];
+    smoothedPoseRef.current = [];
+    lostPoseFramesRef.current = 0;
     lastPoseVideoTimeRef.current = -1;
     setLoading(false);
   };
@@ -503,16 +428,12 @@ export default function TryFreePage() {
                       transform: "scaleX(-1)",
                     }}
                   />
-                  <canvas
-                    ref={canvasRef}
-                    className="w-full h-full object-cover absolute inset-0"
-                    style={{ display: (isLiveTryOn && !use3D) ? "block" : "none" }}
-                  />
-                  {stream && isLiveTryOn && use3D && (
+                  {stream && isLiveTryOn && (
                     <AROverlay3D
                       poseDataRef={poseLandmarksRef}
                       selectedDress={selectedDress}
                       isVisible={true}
+                      videoRef={videoRef}
                     />
                   )}
 
@@ -634,17 +555,7 @@ export default function TryFreePage() {
                       Reset
                     </button>
 
-                    <div className="pt-2">
-                      <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-slate-100 transition-colors">
-                        <input
-                          type="checkbox"
-                          checked={use3D}
-                          onChange={(e) => setUse3D(e.target.checked)}
-                          className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                        />
-                        <span className="text-xs font-semibold text-slate-700">Experimental 3D Mode</span>
-                      </label>
-                    </div>
+                    {/* 3D Mode Toggle removed - default to 3D */}
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-slate-200">
@@ -683,4 +594,6 @@ export default function TryFreePage() {
     </section>
   );
 }
+
+
 
