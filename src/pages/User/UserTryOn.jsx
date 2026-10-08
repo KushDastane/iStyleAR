@@ -13,9 +13,14 @@ import {
   getDocs,
 } from "firebase/firestore";
 import CreativeCarousel from "../../Components/CreativeCarousel";
-import { FaRegEye, FaMagic, FaCamera, FaStop } from "react-icons/fa";
+import { FaRegEye, FaMagic, FaCamera, FaStop, FaInfoCircle } from "react-icons/fa";
 import axios from "axios";
 import ARWakeUpModal from "../../Components/ARWakeUpModal";
+import SizeRecommendation from "../../Components/AI/SizeRecommendation";
+import BodyProfileForm from "../../Components/AI/BodyProfileForm";
+import { getFitRecommendation } from "../../services/sizeRecommendationService";
+import { useWeather } from "../../context/WeatherContext";
+import { checkItemWeatherSuitability } from "../../services/weatherRecommendationService";
 
 import {
   createHandDetector,
@@ -44,6 +49,12 @@ export default function UserTryOn() {
   const [selectedSize, setSelectedSize] = useState("M");
   const [isPublic, setIsPublic] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [sizeRec, setSizeRec] = useState(null);
+  const [weatherSuitability, setWeatherSuitability] = useState(null);
+  const { weather } = useWeather();
+  const [userProfile, setUserProfile] = useState(null);
 
   const [stream, setStream] = useState(null);
   const [isLiveTryOn, setIsLiveTryOn] = useState(false);
@@ -125,7 +136,11 @@ export default function UserTryOn() {
     const fetchUser = async () => {
       const snap = await getDoc(doc(db, "users", user.uid));
       if (snap.exists()) {
-        setFreeTryonsLeft(snap.data().freeTryonsLeft ?? 15);
+        const data = snap.data();
+        setFreeTryonsLeft(data.freeTryonsLeft ?? 15);
+        if (data.bodyProfile) {
+          setUserProfile(data.bodyProfile);
+        }
       } else {
         await updateDoc(doc(db, "users", user.uid), { freeTryonsLeft: 15 });
         setFreeTryonsLeft(15);
@@ -133,6 +148,27 @@ export default function UserTryOn() {
     };
     fetchUser();
   }, [user]);
+
+  // Update recommendations whenever relevant dependencies change
+  useEffect(() => {
+    if (selectedDress) {
+      if (weather) {
+        setWeatherSuitability(checkItemWeatherSuitability(selectedDress, weather));
+      }
+      // Simple pose feature extraction
+      const poseFeatures = {
+         estimatedShoulder: 42, // default fallback
+         estimatedChest: 98,
+         estimatedWaist: 82
+      };
+      
+      const rec = getFitRecommendation(userProfile, poseFeatures, selectedDress);
+      setSizeRec(rec);
+      if (rec && rec.recommendedSize) {
+        setSelectedSize(rec.recommendedSize);
+      }
+    }
+  }, [selectedDress, userProfile, weather]);
 
   useEffect(() => {
     if (!user) return;
@@ -1507,6 +1543,27 @@ skipped_detections = ${skippedDetectionRef.current}
                 ))}
               </div>
 
+              {sizeRec && (
+                <div className="w-full mt-4">
+                  <SizeRecommendation 
+                    recommendation={sizeRec} 
+                    onOpenProfile={() => setShowProfileForm(true)} 
+                  />
+                </div>
+              )}
+
+              {weatherSuitability && (
+                <div className={`w-full mt-4 flex items-start gap-2 p-3 rounded-xl border ${weatherSuitability.isSuitable ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+                  <FaInfoCircle className={`mt-0.5 ${weatherSuitability.isSuitable ? 'text-green-500' : 'text-orange-500'}`} />
+                  <div>
+                    <p className={`text-sm font-semibold ${weatherSuitability.isSuitable ? 'text-green-700' : 'text-orange-700'}`}>
+                      {weatherSuitability.isSuitable ? 'Weather Suitable' : 'Not Ideal for Weather'}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-1">{weatherSuitability.message}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Aura + Divider */}
               <div className="relative w-full mt-5 flex flex-col items-center">
                 <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-40 h-16 bg-purple-400/25 blur-3xl rounded-full pointer-events-none" />
@@ -1640,6 +1697,15 @@ skipped_detections = ${skippedDetectionRef.current}
           healthUrl={healthUrl} // ✅ REQUIRED
           onReady={handleARReady}
           onClose={handleWakeUpClose}
+        />
+      )}
+
+      {/* Body Profile Form */}
+      {showProfileForm && (
+        <BodyProfileForm 
+          user={user} 
+          onClose={() => setShowProfileForm(false)} 
+          onUpdated={(profile) => setUserProfile(profile)} 
         />
       )}
     </div>

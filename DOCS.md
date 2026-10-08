@@ -227,5 +227,25 @@ For support and questions:
 - [ ] Advanced AR features (pose detection, lighting adjustment)
 - [ ] Social sharing of try-on results
 - [ ] Integration with e-commerce platforms
-- [ ] AI-powered fashion recommendations
 - [ ] Multi-language support
+
+## New AI & Weather Features
+
+### AI Size Recommendation (Rule-Based Fit Engine)
+- Extracts body proportions (optionally entered by the user via Body Profile) or estimates using Mediapipe Pose Landmarks.
+- Uses normalized brand size mapping (currently in `sizeCharts.js`) to score size suitability based on chest, waist, and shoulder width.
+- Predicts the best fit and presents a percentage confidence.
+- Ready for ML: Currently implemented as a scoring engine, but designed modularly so an ML model (like Random Forest) can replace the scoring logic in `sizeRecommendationService.js` once enough feedback data is collected.
+
+### Weather-Based Fashion Intelligence
+- Utilizes `navigator.geolocation` and the OpenWeatherMap API (via `VITE_WEATHER_API_KEY`) to fetch current weather.
+- Applies `climateRules` to analyze temperature, humidity, and precipitation.
+- Scores the user's `VirtualWardrobe` to recommend suitable outfits and fabrics, and highlights items to avoid.
+- Integrated into the Dashboard and warns/validates within the Virtual Try-On workflow.
+
+### Environment Variables Added
+- `VITE_WEATHER_API_KEY` - OpenWeatherMap API key required for live weather updates.
+
+### Firestore Additions
+- `users/{uid}/bodyProfile` - Stores height, weight, chest, waist, shoulder, and preferredFit.
+- `users/{uid}/fitFeedback` - (Future-proof structure) Stores user feedback on size recommendations.

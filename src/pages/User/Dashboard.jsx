@@ -8,6 +8,10 @@ import { FaCamera, FaHeart, FaFire, FaClock, FaMagic } from "react-icons/fa";
 import { db } from "../../firebase/config";
 import { doc, getDoc } from "firebase/firestore";
 import { toast } from "react-toastify";
+import { useWeather } from "../../context/WeatherContext";
+import WeatherCard from "../../Components/Weather/WeatherCard";
+import WeatherOutfitRecommendation from "../../Components/Weather/WeatherOutfitRecommendation";
+import { getOutfitRecommendation } from "../../services/weatherRecommendationService";
 
 const getTimeAgo = (date) => {
   const now = new Date();
@@ -33,9 +37,17 @@ export default function Dashboard() {
   const { addToWardrobe, wardrobeItems } = useWardrobe();
   const { topSuggestions, replaceItem, isLoadingSuggestions } =
     useRecommendation();
+  const { weather, loading: weatherLoading, error: weatherError } = useWeather();
   const navigate = useNavigate();
   const [previousTries, setPreviousTries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [weatherOutfit, setWeatherOutfit] = useState(null);
+
+  useEffect(() => {
+    if (weather && wardrobeItems.length > 0) {
+      setWeatherOutfit(getOutfitRecommendation(weather, wardrobeItems));
+    }
+  }, [weather, wardrobeItems]);
 
   const isItemAdded = (item) =>
     wardrobeItems.some(
@@ -171,6 +183,16 @@ export default function Dashboard() {
                 <span className="text-sm text-gray-500">recent tries</span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* 🌤️ Weather Intelligence Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+          <div className="lg:col-span-1">
+            <WeatherCard weather={weather} loading={weatherLoading} error={weatherError} />
+          </div>
+          <div className="lg:col-span-2">
+            <WeatherOutfitRecommendation recommendation={weatherOutfit} />
           </div>
         </div>
 

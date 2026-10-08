@@ -2,11 +2,12 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { WardrobeProvider } from "./context/WardrobeContext";
 import { RecommendationProvider } from "./context/RecommendationContext";
-
 // Public Pages
 import HomePage from "./pages/Home/HomePage";
 import TryFreePage from "./pages/TryFree/TryFreePage";
 import Login from "./pages/Auth/Login";
+
+import { WeatherProvider } from "./context/WeatherContext";
 
 // User Pages
 import Dashboard from "./pages/User/Dashboard";
@@ -63,11 +64,13 @@ export default function App() {
       <AuthProvider>
         <WardrobeProvider>
           <RecommendationProvider>
-            <Router>
-              <AppRoutes />
-              {/* Render Footer only for public pages */}
-              <Footer />
-            </Router>
+            <WeatherProvider>
+              <Router>
+                <AppRoutes />
+                {/* Render Footer only for public pages */}
+                <Footer />
+              </Router>
+            </WeatherProvider>
           </RecommendationProvider>
         </WardrobeProvider>
       </AuthProvider>
