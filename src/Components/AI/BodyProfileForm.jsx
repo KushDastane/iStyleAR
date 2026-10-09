@@ -85,27 +85,27 @@ export default function BodyProfileForm({ user, onClose, onUpdated }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Height (cm)</label>
-                <input type="number" name="height" value={profile.height} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
+                <input type="number" name="height" value={profile.height} onChange={handleChange} className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Weight (kg)</label>
-                <input type="number" name="weight" value={profile.weight} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
+                <input type="number" name="weight" value={profile.weight} onChange={handleChange} className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Chest (cm)</label>
-                <input type="number" name="chest" value={profile.chest} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
+                <input type="number" name="chest" value={profile.chest} onChange={handleChange} className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Waist (cm)</label>
-                <input type="number" name="waist" value={profile.waist} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
+                <input type="number" name="waist" value={profile.waist} onChange={handleChange} className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Shoulder (cm)</label>
-                <input type="number" name="shoulder" value={profile.shoulder} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
+                <input type="number" name="shoulder" value={profile.shoulder} onChange={handleChange} className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Preferred Fit</label>
-                <select name="preferredFit" value={profile.preferredFit} onChange={handleChange} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black">
+                <select name="preferredFit" value={profile.preferredFit} onChange={handleChange} className="w-full bg-gray-50 text-black border border-gray-200 rounded-xl px-4 py-3 focus:ring-2 focus:ring-black">
                   <option value="slim">Slim</option>
                   <option value="regular">Regular</option>
                   <option value="oversized">Oversized</option>

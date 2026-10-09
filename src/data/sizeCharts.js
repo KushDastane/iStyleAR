@@ -41,5 +41,23 @@ export const brandSizeCharts = {
       XL: { chestMin: 112, chestMax: 124, shoulderMin: 46, shoulderMax: 48, waistMin: 97, waistMax: 109 },
       XXL: { chestMin: 124, chestMax: 136, shoulderMin: 48, shoulderMax: 50, waistMin: 109, waistMax: 121 },
     }
+  },
+  Levis: {
+    "T-Shirt": {
+      S: { chestMin: 86, chestMax: 90, shoulderMin: 38, shoulderMax: 40, waistMin: 71, waistMax: 76 },
+      M: { chestMin: 91, chestMax: 95, shoulderMin: 41, shoulderMax: 43, waistMin: 77, waistMax: 81 },
+      L: { chestMin: 96, chestMax: 101, shoulderMin: 44, shoulderMax: 46, waistMin: 82, waistMax: 88 },
+      XL: { chestMin: 102, chestMax: 107, shoulderMin: 47, shoulderMax: 49, waistMin: 89, waistMax: 95 },
+      XXL: { chestMin: 108, chestMax: 113, shoulderMin: 50, shoulderMax: 52, waistMin: 96, waistMax: 102 },
+    }
+  },
+  Lee: {
+    "T-Shirt": {
+      S: { chestMin: 90, chestMax: 94, shoulderMin: 42, shoulderMax: 44, waistMin: 75, waistMax: 80 },
+      M: { chestMin: 95, chestMax: 99, shoulderMin: 45, shoulderMax: 47, waistMin: 81, waistMax: 86 },
+      L: { chestMin: 100, chestMax: 104, shoulderMin: 48, shoulderMax: 50, waistMin: 87, waistMax: 92 },
+      XL: { chestMin: 105, chestMax: 109, shoulderMin: 51, shoulderMax: 53, waistMin: 93, waistMax: 98 },
+      XXL: { chestMin: 110, chestMax: 114, shoulderMin: 54, shoulderMax: 56, waistMin: 99, waistMax: 104 },
+    }
   }
 };

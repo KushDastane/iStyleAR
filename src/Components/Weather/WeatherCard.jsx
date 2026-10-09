@@ -23,7 +23,7 @@ export default function WeatherCard({ weather, loading, error }) {
   }
 
   return (
-    <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-3xl shadow-lg p-6 text-white relative overflow-hidden">
+    <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 rounded-2xl shadow-lg p-6 h-full flex flex-col justify-between text-white relative overflow-hidden">
       <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
       <div className="absolute bottom-0 right-0 p-4 opacity-50">
          {weather.icon && <img src={`http://openweathermap.org/img/wn/${weather.icon}@4x.png`} alt="weather icon" className="w-24 h-24 drop-shadow-lg" />}
@@ -55,6 +55,26 @@ export default function WeatherCard({ weather, loading, error }) {
             </div>
             <span className="font-bold">{weather.precipitationProbability}%</span>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-8 pt-4 border-t border-white/20 relative z-10 flex flex-col justify-between h-full">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-blue-100 text-sm font-medium">Feels like</span>
+          <span className="text-white font-bold text-lg">{weather.feelsLikeC}°</span>
+        </div>
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 mt-auto">
+          <p className="text-blue-50 text-sm leading-relaxed italic">
+            {weather.temperatureC > 30 
+              ? "Stay hydrated! It's quite hot outside today." 
+              : weather.temperatureC < 15 
+              ? "A bit chilly outside. Layering is highly recommended." 
+              : weather.precipitationProbability > 40 || weather.weatherCondition?.toLowerCase().includes("rain")
+              ? "Looks like rain. Don't forget to grab an umbrella!"
+              : weather.windSpeed > 8
+              ? "It's pretty breezy out there. Hold onto your hat!"
+              : "Beautiful weather! A great day to be outdoors."}
+          </p>
         </div>
       </div>
     </div>

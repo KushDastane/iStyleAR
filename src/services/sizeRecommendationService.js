@@ -12,12 +12,13 @@ const calculateDimensionScore = (userVal, min, max) => {
   if (!userVal || !min || !max) return 0;
   
   const mid = (min + max) / 2;
-  const tolerance = (max - min) * 1.5; // Acceptable range before score drops sharply
+  // Increase tolerance so that being a few cm off doesn't plunge the score to 20%
+  const tolerance = Math.max((max - min) * 3, 15); 
   
   const diff = Math.abs(userVal - mid);
   if (diff <= (max - min) / 2) return 100; // Inside the range perfectly
   
-  // Linear drop-off outside the range
+  // Smoother linear drop-off outside the range
   const score = Math.max(0, 100 - ((diff - (max - min) / 2) / tolerance) * 100);
   return score;
 };
@@ -38,12 +39,10 @@ export const getFitRecommendation = (bodyProfile, poseFeatures, clothingItem) =>
   if (!chart) return null; // No chart available at all
   
   // Determine effective measurements
-  // Priority: 1. Manual Profile, 2. Pose Estimated
-  // We assume poseFeatures provides normalized or calibrated CM estimates if possible.
-  // For now, we will rely mostly on profile or simulated pose scaling.
-  let chest = bodyProfile?.chest || poseFeatures?.estimatedChest || 98; // Fallback to avg M
-  let waist = bodyProfile?.waist || poseFeatures?.estimatedWaist || 82; 
-  let shoulder = bodyProfile?.shoulder || poseFeatures?.estimatedShoulder || 42;
+  // Priority: 1. Live Pose Estimated, 2. Manual Profile, 3. Default Fallback
+  let chest = poseFeatures?.estimatedChest || bodyProfile?.chest || 98; 
+  let waist = poseFeatures?.estimatedWaist || bodyProfile?.waist || 82; 
+  let shoulder = poseFeatures?.estimatedShoulder || bodyProfile?.shoulder || 42;
   
   const sizeScores = [];
   
@@ -96,6 +95,7 @@ export const getFitRecommendation = (bodyProfile, poseFeatures, clothingItem) =>
     recommendedSize: bestFit.size,
     confidence: bestFit.score,
     fitScore: bestFit.score,
+    allScores: sizeScores,
     alternatives: sizeScores.slice(1, 3),
     explanation: reason,
     brand: brand,

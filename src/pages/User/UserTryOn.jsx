@@ -55,6 +55,7 @@ export default function UserTryOn() {
   const [weatherSuitability, setWeatherSuitability] = useState(null);
   const { weather } = useWeather();
   const [userProfile, setUserProfile] = useState(null);
+  const [livePoseFeatures, setLivePoseFeatures] = useState(null);
 
   const [stream, setStream] = useState(null);
   const [isLiveTryOn, setIsLiveTryOn] = useState(false);
@@ -155,20 +156,17 @@ export default function UserTryOn() {
       if (weather) {
         setWeatherSuitability(checkItemWeatherSuitability(selectedDress, weather));
       }
-      // Simple pose feature extraction
-      const poseFeatures = {
-         estimatedShoulder: 42, // default fallback
-         estimatedChest: 98,
-         estimatedWaist: 82
-      };
+      // Use live pose features if available, otherwise null
+      const poseFeatures = livePoseFeatures || null;
       
       const rec = getFitRecommendation(userProfile, poseFeatures, selectedDress);
       setSizeRec(rec);
-      if (rec && rec.recommendedSize) {
+      if (rec && rec.recommendedSize && !livePoseFeatures) {
+        // Only auto-switch the dropdown if we aren't rapidly updating via live camera
         setSelectedSize(rec.recommendedSize);
       }
     }
-  }, [selectedDress, userProfile, weather]);
+  }, [selectedDress, userProfile, weather, livePoseFeatures]);
 
   useEffect(() => {
     if (!user) return;
@@ -978,6 +976,40 @@ skipped_detections = ${skippedDetectionRef.current}
               overlayStateRef.current,
               SMOOTHING_ALPHA
             );
+            
+            // Extract body measurements periodically for live size recommendation
+            if (frameCounterRef.current % 15 === 0) {
+              const pose = smoothedPose[0];
+              // pose[2] and pose[5] are eyes in MediaPipe Pose
+              if (pose && pose[11] && pose[12] && pose[23] && pose[24] && pose[2] && pose[5]) {
+                const shoulderSpan = Math.abs(pose[12].x - pose[11].x);
+                const hipSpan = Math.abs(pose[24].x - pose[23].x);
+                
+                // Biological Ruler: Average adult interpupillary distance (IPD) is ~6.3 cm
+                const eyeSpan = Math.max(0.001, Math.hypot(pose[5].x - pose[2].x, pose[5].y - pose[2].y));
+                
+                // Calculate scale factor: how many cm is 1 normalized coordinate unit?
+                const cmPerUnit = 6.3 / eyeSpan;
+                
+                // Calculate real-world measurements using the biological ruler!
+                // Add a small calibration offset to account for 2D projection loss
+                const shoulderCm = Math.max(34, Math.min(60, (shoulderSpan * cmPerUnit) + 2)); 
+                const chestCm = shoulderCm * 2.35;
+                const waistCm = Math.max(60, Math.min(120, (hipSpan * cmPerUnit * 2.2)));
+                
+                setLivePoseFeatures(prev => {
+                  // Only update if it changes meaningfully, to prevent jitter
+                  if (!prev || Math.abs(prev.estimatedShoulder - shoulderCm) > 1.5) {
+                    return {
+                      estimatedShoulder: Math.round(shoulderCm),
+                      estimatedChest: Math.round(chestCm),
+                      estimatedWaist: Math.round(waistCm),
+                    };
+                  }
+                  return prev;
+                });
+              }
+            }
           }
 
 
@@ -1547,6 +1579,8 @@ skipped_detections = ${skippedDetectionRef.current}
                 <div className="w-full mt-4">
                   <SizeRecommendation 
                     recommendation={sizeRec} 
+                    selectedSize={selectedSize}
+                    isLiveTracking={!!livePoseFeatures}
                     onOpenProfile={() => setShowProfileForm(true)} 
                   />
                 </div>
